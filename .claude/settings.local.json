@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(dir \"C:\\\\Users\\\\Jack Urness\\\\OneDrive\\\\Business\\\\Business_UCREW\\\\UCREW_AI\\\\AI_Projects\\\\Projects_IncentivesDatabase\" -Force -ErrorAction SilentlyContinue | Where-Object {$_ -ne $null})",
+      "PowerShell($path = \"C:\\\\Users\\\\Jack Urness\\\\OneDrive\\\\Business\\\\Business_UCREW\\\\UCREW_AI\\\\AI_Projects\\\\Projects_IncentivesDatabase\"; Get-ChildItem -Path $path -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object { $relativePath = $_.FullName.Substring\\($path.Length + 1\\); $type = if\\($_.PSIsContainer\\){\"[DIR]\"}else{\"[FILE]\"}; $size = if\\($_.PSIsContainer\\){\"-\"}else{\"{0:N0} B\" -f $_.Length}; \"{0,-80} {1,-6} {2}\" -f $relativePath, $type, $size } | Sort-Object)",
+      "PowerShell($basePath = \"C:\\\\Users\\\\Jack Urness\\\\OneDrive\\\\Business\\\\Business_UCREW\\\\UCREW_AI\\\\AI_Projects\\\\Projects_IncentivesDatabase\"; Get-ChildItem -Path $basePath -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object { $relativePath = $_.FullName.Substring\\($basePath.Length + 1\\); if\\($_.PSIsContainer\\) { \"DIR:  $relativePath\" } else { $sizeKB = [math]::Round\\($_.Length / 1024, 2\\); \"FILE: $relativePath \\({0} KB\\)\" -f $sizeKB } } | Sort-Object)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Jack Urness\\\\OneDrive\\\\Business\\\\Business_UCREW\\\\UCREW_AI\\\\AI_Projects\" -Force -ErrorAction SilentlyContinue | ForEach-Object { $type = if\\($_.PSIsContainer\\){\"[DIR]\"}else{\"[FILE]\"}; \"{0,-40} {1}\" -f $_.Name, $type })",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Jack Urness\\\\OneDrive\\\\Business\\\\Business_UCREW\\\\UCREW_AI\" -Force -ErrorAction SilentlyContinue | ForEach-Object { $type = if\\($_.PSIsContainer\\){\"[DIR]\"}else{\"[FILE]\"}; \"{0,-40} {1}\" -f $_.Name, $type })",
+      "PowerShell($path = \"C:\\\\Users\\\\Jack Urness\\\\OneDrive\\\\Business\\\\Business_UCREW\\\\UCREW_AI\\\\AI_Projects\\\\Projects_IncentivesDatabase\"; Write-Host \"Checking: $path\"; Write-Host \"Directory Exists: $\\(Test-Path $path\\)\"; Write-Host \"Is Directory: $\\(Test-Path $path -PathType Container\\)\"; Write-Host \"\"; Write-Host \"Contents:\"; @\\(Get-ChildItem -Path $path -Force -ErrorAction SilentlyContinue\\) | ForEach-Object { $type = if\\($_.PSIsContainer\\){\"DIRECTORY\"}else{\"FILE\"}; $size = if\\($_.PSIsContainer\\){\"-\"}else{$_.Length}; Write-Host \"  $type`t$\\($_.Name\\)`t\\($size bytes\\)\" })",
+      "WebSearch",
+      "WebFetch(domain:dsireusa.org)",
+      "WebFetch(domain:programs.dsireusa.org)",
+      "WebFetch(domain:www.nvenergy.com)"
+    ]
+  }
+}

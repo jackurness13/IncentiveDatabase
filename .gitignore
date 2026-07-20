@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Generated outputs -- rebuilt by the scanner / GitHub Actions, not tracked
+site/
+incentives.db
+incentives.xlsx
+incentives.html
+run_log.txt
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
