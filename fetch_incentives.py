@@ -491,7 +491,6 @@ def _write_html(rows):
     df = pd.DataFrame(rows, columns=ALL_COLUMNS)
     df = df.sort_values(["State", "Status", "Program Name"])
 
-    states = sorted(df["State"].unique())
     types = sorted(df["Incentive Type"].dropna().unique())
     sectors = sorted(df["Sector"].dropna().unique())
     techs = sorted(df["Technology"].dropna().unique())
@@ -509,10 +508,18 @@ def _write_html(rows):
     enabled = [s for s in ALL_STATES if s in ENABLED_STATES]
     enabled_codes = ", ".join(enabled)
     enabled_names = " &middot; ".join(STATE_NAMES.get(s, s) for s in enabled)
+    # State filter + state legend chips only make sense with more than one state.
+    multi_state = len(enabled) > 1
     legend_states_html = "".join(
         '<span style="background:' + html_colors.get(s, "#888") + '"></span>' + s
         for s in enabled
-    )
+    ) if multi_state else ""
+    if multi_state:
+        _state_opts = '<option value="">All</option>' + "".join(
+            "<option>" + _esc(s) + "</option>" for s in enabled)
+        state_filter_html = '<select id="f-state" onchange="applyFilters()">' + _state_opts + "</select>"
+    else:
+        state_filter_html = ""
 
     # Build per-row detail JSON (indexed by row id)
     detail_data = {}
@@ -776,7 +783,7 @@ td .eq-tag { display: inline-block; background: #f0e6e6; color: #7a3a3a; border-
 </div>
 <div class="controls">
   <input type="text" id="search" placeholder="Search all fields..." oninput="applyFilters()">
-  <select id="f-state" onchange="applyFilters()">""" + options(states) + """</select>
+  """ + state_filter_html + """
   <select id="f-type" onchange="applyFilters()"><option value="">All Types</option>""" + options(types) + """</select>
   <select id="f-sector" onchange="applyFilters()"><option value="">All Sectors</option>""" + options(sectors) + """</select>
   <select id="f-tech" onchange="applyFilters()"><option value="">All Technologies</option>""" + options(techs) + """</select>
@@ -1061,7 +1068,8 @@ function renderArBanner(arActive, arText, arCats, specificCount, customCount) {
 
 function applyFilters() {
   var q = document.getElementById('search').value.toLowerCase();
-  var state = document.getElementById('f-state').value;
+  var stateEl = document.getElementById('f-state');
+  var state = stateEl ? stateEl.value : '';
   var type = document.getElementById('f-type').value;
   var sector = document.getElementById('f-sector').value;
   var tech = document.getElementById('f-tech').value;
