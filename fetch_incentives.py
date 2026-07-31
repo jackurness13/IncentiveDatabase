@@ -76,12 +76,21 @@ STATE_NAMES = {"UT": "Utah", "MT": "Montana", "ID": "Idaho", "NV": "Nevada"}
 # constant drives the scrapers that run, the rows kept, and all site/Excel labels.
 ENABLED_STATES = ["UT"]
 
-# Summary columns shown in Excel main sheets and HTML table
+# Summary columns shown in the Excel main sheets (the full set).
 COLUMNS = [
     "State", "Program Name", "Administrator", "Sector", "Incentive Type",
     "Technology", "Incentive Value", "Max Benefit", "Eligible Recipients",
     "Expiration Date", "Application URL", "Last Scraped", "Status", "Notes",
 ]
+
+# Columns shown in the on-page HTML table -- a trimmed subset. Sector (always
+# C&I), Application URL, Last Scraped (shown in the header badge), and Notes are
+# intentionally omitted here; all of them still appear in each program's detail
+# modal, so nothing is lost. "State" and "Program Name" must stay first (the
+# renderer treats column 0 as the state badge and column 1 as the name button).
+HTML_COLUMNS = [c for c in COLUMNS if c not in (
+    "Sector", "Application URL", "Last Scraped", "Notes",
+)]
 
 # Detail columns stored in SQLite and shown in modal / Excel Details sheet.
 # The _ -prefixed structured fields hold the actual numbers used in calculations.
@@ -585,7 +594,7 @@ def _write_html(rows):
             '<td class="name-cell"><button class="detail-btn" onclick="openDetail(' + str(row_idx) + ')">'
             + _esc(name) + "</button></td>",
         ]
-        for col in COLUMNS[2:]:
+        for col in HTML_COLUMNS[2:]:
             val = str(row.get(col) or "")
             if col == "Application URL" and val:
                 cells.append('<td><a href="' + _esc(val) + '" target="_blank">Open</a></td>')
@@ -609,7 +618,7 @@ def _write_html(rows):
 
     th_cells = "".join(
         '<th onclick="sortTable(' + str(i) + ')">' + col + "</th>"
-        for i, col in enumerate(COLUMNS)
+        for i, col in enumerate(HTML_COLUMNS)
     )
 
     detail_json = json.dumps(detail_data, ensure_ascii=True)
@@ -639,8 +648,7 @@ header { background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 
 header h1 { font-size: 20px; }
 header p { font-size: 12px; opacity: .8; margin-top: 4px; }
 .controls { padding: 12px 24px; background: #fff; border-bottom: 1px solid #ddd; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.controls input, .controls select { padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; }
-.controls input { width: 200px; }
+.controls select { padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; }
 .legend { margin-left: auto; display: flex; gap: 8px; align-items: center; font-size: 11px; flex-wrap: wrap; }
 .legend span { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
 #count { font-size: 12px; color: #555; }
@@ -668,9 +676,6 @@ tr.expired td.money { color: #9bb69b; }
 .header-badges { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .hbadge { display: inline-block; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.25); color: #fff; font-size: 12px; padding: 3px 10px; border-radius: 12px; }
 .hbadge.scanned { background: #2d8c2d; border-color: #2d8c2d; font-weight: 600; }
-.dl-links { display: flex; gap: 8px; align-items: center; }
-.dl-btn { display: inline-block; background: var(--brand-tint); border: 1px solid var(--brand-tint-border); color: var(--brand); padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; }
-.dl-btn:hover { background: #f6dada; text-decoration: none; }
 
 /* AR Finder */
 .ar-bar { background: linear-gradient(135deg, #fff 0%, var(--brand-tint) 100%); border-bottom: 1px solid var(--brand-tint-border); padding: 16px 24px; }
@@ -773,13 +778,8 @@ td .eq-tag { display: inline-block; background: #f0e6e6; color: #7a3a3a; border-
   </div>
 </div>
 <div class="controls">
-  <input type="text" id="search" placeholder="Search all fields..." oninput="applyFilters()">
   """ + state_filter_html + """
   <span id="count"></span>
-  <div class="dl-links">
-    <a class="dl-btn" href="incentives.xlsx" download>&#8681; Excel</a>
-    <a class="dl-btn" href="index.html" download="ucrew-incentives.html">&#8681; This page</a>
-  </div>
   <div class="legend">
     """ + legend_states_html + """
     <span style="background:#fffde7;border:1px solid #ccc"></span>Paused/Pending
@@ -1051,7 +1051,8 @@ function renderArBanner(arActive, arText, arCats, specificCount, customCount) {
 }
 
 function applyFilters() {
-  var q = document.getElementById('search').value.toLowerCase();
+  var searchEl = document.getElementById('search');
+  var q = searchEl ? searchEl.value.toLowerCase() : '';
   var stateEl = document.getElementById('f-state');
   var state = stateEl ? stateEl.value : '';
   var arText = document.getElementById('ar-input').value.trim();
