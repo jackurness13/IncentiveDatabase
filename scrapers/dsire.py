@@ -112,9 +112,14 @@ def _is_ci(sector):
     return any(term in s for term in _CI_TERMS)
 
 
-def fetch_all():
+def fetch_all(states=None):
+    """Fetch DSIRE C&I programs. ``states`` restricts the query (defaults to all
+    supported states); the orchestrator passes its ENABLED_STATES list."""
+    states = states or STATES
     all_rows = []
-    for state in STATES:
+    for state in states:
+        if state not in STATES:
+            continue
         rows = [r for r in fetch(state) if _is_ci(r.get("Sector", ""))]
         print(f"  DSIRE [{state}]: {len(rows)} commercial/industrial programs")
         all_rows.extend(rows)

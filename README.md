@@ -1,15 +1,21 @@
 # UCREW — Commercial & Industrial Energy Efficiency Incentives
 
 A self-updating database of **commercial & industrial (C&I)** energy efficiency
-incentives across **Utah, Montana, Idaho, and Nevada**, published as a public website
-for UCREW students and staff.
+incentives, published as a public website for UCREW students and staff.
+
+**Currently scoped to Utah** — the goal is to perfect one state first, then grow.
+The scanner supports Utah, Montana, Idaho, and Nevada; coverage is controlled by a
+single `ENABLED_STATES` list in [`fetch_incentives.py`](fetch_incentives.py). Add a
+state code there (e.g. `["UT", "ID"]`) and the scrapers, the kept records, and every
+site/Excel label update automatically.
 
 **Live site:** https://jackurness13.github.io/IncentiveDatabase/
 
 The scanner collects utility and program incentives, records the actual numbers used
 in savings calculations (rebate rates, tiers, baselines, minimum project sizes), and
-publishes a searchable, sortable web page. It refreshes **automatically every day** —
-no one has to run anything.
+publishes a searchable, sortable web page with an **AR Finder** that maps an assessment
+recommendation (e.g. "Install VFD on compressors") to the incentives that apply. It
+refreshes **automatically every day** — no one has to run anything.
 
 > Scope note: residential, multifamily, and new-home/builder programs are intentionally
 > excluded. This tool is for **commercial, industrial, and agricultural** facilities.
@@ -31,20 +37,23 @@ no one has to run anything.
 ## How it works
 
 ```
-fetch_incentives.py         Orchestrator: runs all scrapers, dedupes, auto-expires,
-                            writes incentives.db / .xlsx / .html, and stages site/
+fetch_incentives.py         Orchestrator: ENABLED_STATES scope, runs the in-scope
+                            scrapers, dedupes, auto-expires, writes db/xlsx/html, stages site/
 scrapers/                   One module per data source (each returns C&I programs only)
   base.py                     record() row factory + shared HTTP helper
-  rocky_mountain.py           Rocky Mountain Power / PacifiCorp (UT)
-  dominion_ut.py              Dominion Energy / ThermWise Business (UT)
-  nv_energy.py                NV Energy PowerShift Business (NV)
-  northwestern.py             NorthWestern Energy Business (MT)
-  idaho_power.py              Idaho Power C&I + Agricultural (ID)
-  avista.py                   Avista Business (ID)
-  dsire.py                    DSIRE federal database (filtered to C&I sectors)
+  rocky_mountain.py           Rocky Mountain Power / PacifiCorp (UT)   [active]
+  dominion_ut.py              Dominion Energy / ThermWise Business (UT) [active]
+  nv_energy.py                NV Energy PowerShift Business (NV)        [disabled: not in ENABLED_STATES]
+  northwestern.py             NorthWestern Energy Business (MT)         [disabled: not in ENABLED_STATES]
+  idaho_power.py              Idaho Power C&I + Agricultural (ID)       [disabled: not in ENABLED_STATES]
+  avista.py                   Avista Business (ID)                      [disabled: not in ENABLED_STATES]
+  dsire.py                    DSIRE federal database (filtered to C&I + ENABLED_STATES)
 site/                       Static site published to GitHub Pages (generated, gitignored)
 .github/workflows/          Daily build + publish automation
 ```
+
+Non-Utah scrapers stay in the repo but don't run until their state is added to
+`ENABLED_STATES` — enabling more coverage is a one-line change, not a rewrite.
 
 Each scraper tries to read the live utility page and falls back to a curated set of
 known programs (with full methodology and worked examples) if the page can't be parsed.

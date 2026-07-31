@@ -1,6 +1,7 @@
 """
 UCREW -- Commercial & Industrial Energy Efficiency Incentives Database
-States: Utah (UT), Montana (MT), Idaho (ID), Nevada (NV)
+Scope: set by ENABLED_STATES below. Currently Utah (UT) only; add codes to grow.
+Supported states: Utah (UT), Montana (MT), Idaho (ID), Nevada (NV)
 
 Scope: commercial & industrial (C&I) facility incentives only -- residential,
 multifamily, and new-home/builder programs are intentionally excluded.
@@ -65,6 +66,15 @@ STATE_COLORS = {
     "ID": "FFF28E2B",
     "NV": "FFE15759",
 }
+
+# Canonical ordering + display names for every state the scanner *can* cover.
+ALL_STATES = ["UT", "MT", "ID", "NV"]
+STATE_NAMES = {"UT": "Utah", "MT": "Montana", "ID": "Idaho", "NV": "Nevada"}
+
+# States the scanner is *currently* scoped to. Start narrow (Utah only) and grow
+# by adding codes here as each state is perfected -- e.g. ["UT", "ID"]. This one
+# constant drives the scrapers that run, the rows kept, and all site/Excel labels.
+ENABLED_STATES = ["UT"]
 
 # Summary columns shown in Excel main sheets and HTML table
 COLUMNS = [
@@ -223,27 +233,36 @@ def _stage_site():
 
 def _fetch_all_sources():
     rows = []
-    print("Fetching data sources...\n")
+    print("Fetching data sources (states: " + ", ".join(ENABLED_STATES) + ")...\n")
 
+    # (label, module, func, state). state=None means the source is multi-state
+    # and is scoped by passing ENABLED_STATES; single-state sources are skipped
+    # entirely when their state is not enabled.
     sources = [
-        ("Rocky Mountain Power (UT)", "scrapers.rocky_mountain", "fetch_all"),
-        ("Dominion Energy Utah (UT)", "scrapers.dominion_ut", "fetch_all"),
-        ("NV Energy (NV)", "scrapers.nv_energy", "fetch_all"),
-        ("NorthWestern Energy (MT)", "scrapers.northwestern", "fetch_all"),
-        ("Idaho Power (ID)", "scrapers.idaho_power", "fetch_all"),
-        ("Avista (ID)", "scrapers.avista", "fetch_all"),
-        ("DSIRE (all states)", "scrapers.dsire", "fetch_all"),
+        ("Rocky Mountain Power (UT)", "scrapers.rocky_mountain", "fetch_all", "UT"),
+        ("Dominion Energy Utah (UT)", "scrapers.dominion_ut", "fetch_all", "UT"),
+        ("NV Energy (NV)", "scrapers.nv_energy", "fetch_all", "NV"),
+        ("NorthWestern Energy (MT)", "scrapers.northwestern", "fetch_all", "MT"),
+        ("Idaho Power (ID)", "scrapers.idaho_power", "fetch_all", "ID"),
+        ("Avista (ID)", "scrapers.avista", "fetch_all", "ID"),
+        ("DSIRE", "scrapers.dsire", "fetch_all", None),
     ]
 
-    for label, module_path, func_name in sources:
+    for label, module_path, func_name, state in sources:
+        if state is not None and state not in ENABLED_STATES:
+            continue
         try:
             mod = importlib.import_module(module_path)
             func = getattr(mod, func_name)
-            result = func()
+            # Multi-state sources accept the enabled-state list; single-state don't.
+            result = func(ENABLED_STATES) if state is None else func()
             rows.extend(result)
         except Exception as exc:
             print("  [WARN] " + label + " failed: " + str(exc))
 
+    # Safety net: keep only enabled states (covers multi-state sources and any
+    # stray records), so ENABLED_STATES is the single source of truth for scope.
+    rows = [r for r in rows if r.get("State") in ENABLED_STATES]
     return rows
 
 
@@ -301,7 +320,7 @@ def _auto_expire(rows):
 
 def _print_summary(rows):
     counts = Counter(r["State"] for r in rows)
-    for state in ["UT", "MT", "ID", "NV"]:
+    for state in ENABLED_STATES:
         print("  " + state + ": " + str(counts.get(state, 0)) + " programs")
     statuses = Counter(r.get("Status", "Active") for r in rows)
     for status, n in statuses.items():
@@ -349,7 +368,7 @@ def _write_excel(rows):
 
     with pd.ExcelWriter(XLSX_PATH, engine="openpyxl") as writer:
         df_summary.to_excel(writer, sheet_name="All States", index=False)
-        for state in ["UT", "MT", "ID", "NV"]:
+        for state in ENABLED_STATES:
             df_state = df_summary[df_summary["State"] == state]
             if not df_state.empty:
                 df_state.to_excel(writer, sheet_name=state, index=False)
@@ -486,6 +505,15 @@ def _write_html(rows):
         "ID": "#F28E2B", "NV": "#E15759",
     }
 
+    # Scope labels derived from ENABLED_STATES (drives title, subtitle, legend).
+    enabled = [s for s in ALL_STATES if s in ENABLED_STATES]
+    enabled_codes = ", ".join(enabled)
+    enabled_names = " &middot; ".join(STATE_NAMES.get(s, s) for s in enabled)
+    legend_states_html = "".join(
+        '<span style="background:' + html_colors.get(s, "#888") + '"></span>' + s
+        for s in enabled
+    )
+
     # Build per-row detail JSON (indexed by row id)
     detail_data = {}
     rows_html = []
@@ -593,7 +621,7 @@ def _write_html(rows):
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>UCREW -- Commercial &amp; Industrial Energy Incentives (UT, MT, ID, NV)</title>
+<title>UCREW -- Commercial &amp; Industrial Energy Incentives (""" + enabled_codes + """)</title>
 <link rel="icon" type="image/svg+xml" href=\"""" + logo_uri + """\">
 <style>
 :root {
@@ -718,7 +746,7 @@ td .eq-tag { display: inline-block; background: #f0e6e6; color: #7a3a3a; border-
     <img class="brand-logo" src=\"""" + logo_uri + """\" alt="UCREW">
     <div class="header-text">
       <h1>Commercial &amp; Industrial Energy Incentives</h1>
-      <p>Utah &middot; Montana &middot; Idaho &middot; Nevada &nbsp;|&nbsp; Click any program name for the full calculation breakdown</p>
+      <p>""" + enabled_names + """ &nbsp;|&nbsp; Click any program name for the full calculation breakdown</p>
       <div class="header-badges">
         <span class="hbadge scanned">Last scanned: """ + str(today) + """ &middot; refreshes daily</span>
         <span class="hbadge">""" + str(len(rows)) + """ programs</span>
@@ -762,10 +790,7 @@ td .eq-tag { display: inline-block; background: #f0e6e6; color: #7a3a3a; border-
     <a class="dl-btn" href="index.html" download="ucrew-incentives.html">&#8681; This page</a>
   </div>
   <div class="legend">
-    <span style="background:#4E79A7"></span>UT
-    <span style="background:#59A14F"></span>MT
-    <span style="background:#F28E2B"></span>ID
-    <span style="background:#E15759"></span>NV
+    """ + legend_states_html + """
     <span style="background:#fffde7;border:1px solid #ccc"></span>Paused/Pending
     <span style="background:#fff8e1;border:1px solid #ccc"></span>Expiring Soon
   </div>
