@@ -175,6 +175,13 @@ EQUIPMENT_KEYWORDS = {
         "irrigation", "sprinkler", "center pivot", "agricultural pump",
         "wire-to-water", "scientific irrigation scheduling",
     ],
+    "Energy Storage": [
+        "battery", "batteries", "energy storage", "storage system",
+        "bess", "solar-plus-storage", "solar plus storage",
+    ],
+    "Solar / PV": [
+        "solar", "photovoltaic", "pv system", "solar panel", "solar array",
+    ],
     "Custom / Whole Facility": [
         "custom", "multiple technolog", "whole building", "whole-building",
         "whole facility", "comprehensive", "strategic energy management",
@@ -254,6 +261,7 @@ def _fetch_all_sources():
         ("NorthWestern Energy (MT)", "scrapers.northwestern", "fetch_all", "MT"),
         ("Idaho Power (ID)", "scrapers.idaho_power", "fetch_all", "ID"),
         ("Avista (ID)", "scrapers.avista", "fetch_all", "ID"),
+        ("Federal (IRS/USDA)", "scrapers.federal", "fetch_all", None),
         ("DSIRE", "scrapers.dsire", "fetch_all", None),
     ]
 
@@ -1038,6 +1046,7 @@ function reorderForAr() {
     if (ga !== gb) return ga - gb;
     if (a._expired !== b._expired) return a._expired ? 1 : -1;
     if (b._arScore !== a._arScore) return b._arScore - a._arScore;
+    if (b._arTextScore !== a._arTextScore) return b._arTextScore - a._arTextScore;
     return a.cells[1].textContent.localeCompare(b.cells[1].textContent);
   });
   rows.forEach(function(r) { tbody.appendChild(r); });
@@ -1094,6 +1103,15 @@ function applyFilters() {
     row._arSpecific = overlap.length > 0;
     row._arCustom = isCustom;
     row._expired = row.classList.contains('expired');
+    // Secondary relevance: how many AR words actually appear in this program's
+    // text. Breaks ties so e.g. the "Wastewater / Aeration" measure leads for an
+    // aeration query even though many programs share the Motors & Drives tag.
+    if (arActive) {
+      var words = arText.toLowerCase().split(/[^a-z0-9]+/).filter(function(w) { return w.length > 2; });
+      row._arTextScore = words.reduce(function(n, w) { return n + (fullText.indexOf(w) >= 0 ? 1 : 0); }, 0);
+    } else {
+      row._arTextScore = 0;
+    }
 
     var arOk = !arActive || overlap.length > 0 || isCustom;
     var match = base && arOk;

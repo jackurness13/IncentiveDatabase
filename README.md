@@ -42,18 +42,38 @@ fetch_incentives.py         Orchestrator: ENABLED_STATES scope, runs the in-scop
 scrapers/                   One module per data source (each returns C&I programs only)
   base.py                     record() row factory + shared HTTP helper
   rocky_mountain.py           Rocky Mountain Power / PacifiCorp (UT)   [active]
+                              -- all 11 wattsmart Business categories + wattsmart Battery,
+                                 with a daily coverage self-audit (see below)
   dominion_ut.py              Dominion Energy / ThermWise Business (UT) [active]
+  federal.py                  Federal C&I incentives -- ITC (battery/solar 30%),
+                              MACRS, 179D, USDA REAP  [active, all states]
   nv_energy.py                NV Energy PowerShift Business (NV)        [disabled: not in ENABLED_STATES]
   northwestern.py             NorthWestern Energy Business (MT)         [disabled: not in ENABLED_STATES]
   idaho_power.py              Idaho Power C&I + Agricultural (ID)       [disabled: not in ENABLED_STATES]
   avista.py                   Avista Business (ID)                      [disabled: not in ENABLED_STATES]
-  dsire.py                    DSIRE federal database (filtered to C&I + ENABLED_STATES)
+  dsire.py                    DSIRE lookup [inactive: API now returns 403 and pages are
+                              JS-rendered; federal.py carries the key federal incentives instead]
 site/                       Static site published to GitHub Pages (generated, gitignored)
 .github/workflows/          Daily build + publish automation
 ```
 
 Non-Utah scrapers stay in the repo but don't run until their state is added to
 `ENABLED_STATES` — enabling more coverage is a one-line change, not a rewrite.
+
+### Coverage self-audit (catching missing incentives)
+
+Each daily run fetches Rocky Mountain Power's live Utah incentive-lists index and
+compares the categories RMP publishes against the measures we carry. If RMP adds a
+new category we don't cover, the run logs a `[COVERAGE]` warning naming it — so gaps
+surface automatically instead of going unnoticed. The check lives in
+`scrapers/rocky_mountain.py` (`_audit_coverage`); extend the same pattern to other
+utilities as states are enabled.
+
+**Why some rates say "confirm current amount":** utilities publish exact per-unit
+amounts in PDFs (not machine-readable HTML), and DSIRE — the would-be automated
+catch-all — now blocks scraping. So exact rates are curated from the published lists
+(each measure links to its authoritative page), while the daily scanner keeps the
+pages live-checked, auto-expires lapsed programs, and audits category coverage.
 
 Each scraper tries to read the live utility page and falls back to a curated set of
 known programs (with full methodology and worked examples) if the page can't be parsed.

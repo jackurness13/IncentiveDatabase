@@ -14,7 +14,8 @@ Sources:
   Motors & drives:                  .../ut-incentive-lists/ut-motors-drives.html
   HVAC:                             .../ut-incentive-lists/ut-hvac.html
 """
-from .base import record
+from .base import record, get
+from bs4 import BeautifulSoup
 
 BASE = "https://www.rockymountainpower.net"
 BIZ = BASE + "/savings-energy-choices/business/wattsmart-efficiency-incentives-utah"
@@ -25,19 +26,84 @@ SECTOR = "Commercial & Industrial"
 RECIP = "Commercial & industrial Rocky Mountain Power customers in Utah"
 
 # Authoritative per-category incentive pages (published rates live in their PDFs).
+# Keys double as the coverage-audit slugs (see _audit_coverage): every category
+# RMP publishes should have at least one measure pointing at it.
 URL = {
-    "compressed_air": LISTS + "/ut-compressed-air.html",
-    "motors": LISTS + "/ut-motors-drives.html",
+    "lighting": LISTS + "/ut-lighting.html",
     "hvac": LISTS + "/ut-hvac.html",
+    "motors": LISTS + "/ut-motors-drives.html",
+    "foodservice": LISTS + "/ut-foodservice.html",
+    "compressed_air": LISTS + "/ut-compressed-air.html",
+    "envelope": LISTS + "/ut-building-envelope.html",
+    "appliances": LISTS + "/ut-appliances-office.html",
+    "agriculture": BIZ + "/ut-agriculture.html",
+    "wbnc": LISTS + "/wbnc.html",
+    "wastewater": LISTS + "/ut-wastewater-other-refrigeration.html",
+    "oil_gas": LISTS + "/ut-oil-gas.html",
     "lists": LISTS + ".html",
     "business": BIZ + ".html",
+    "battery": BASE + "/savings-energy-choices/wattsmart-battery-program.html",
+}
+
+# The RMP incentive-lists index slugs we expect to see, mapped to the URL key that
+# covers them. The daily audit fetches the live index and warns if RMP adds a
+# category we do not yet cover -- so missing incentives get surfaced automatically.
+EXPECTED_CATEGORY_SLUGS = {
+    "ut-lighting": "lighting",
+    "ut-hvac": "hvac",
+    "ut-motors-drives": "motors",
+    "ut-foodservice": "foodservice",
+    "ut-compressed-air": "compressed_air",
+    "ut-building-envelope": "envelope",
+    "ut-appliances-office": "appliances",
+    "ut-agriculture": "agriculture",
+    "wbnc": "wbnc",
+    "ut-wastewater-other-refrigeration": "wastewater",
+    "ut-oil-gas": "oil_gas",
 }
 
 
 def fetch_all():
     rows = _measures()
     print("  Rocky Mountain Power [UT]: " + str(len(rows)) + " programs")
+    _audit_coverage()
     return rows
+
+
+def _audit_coverage():
+    """Fetch RMP's live Utah incentive-lists index and warn about any published
+    category we don't yet have a measure for. This keeps the scanner honest about
+    completeness: if RMP adds a category, the daily run flags it in the log."""
+    try:
+        resp = get(URL["lists"], timeout=15)
+        soup = BeautifulSoup(resp.text, "lxml")
+        found = set()
+        for a in soup.find_all("a", href=True):
+            href = a["href"].lower()
+            for slug in EXPECTED_CATEGORY_SLUGS:
+                if slug in href:
+                    found.add(slug)
+        missing_from_page = [s for s in EXPECTED_CATEGORY_SLUGS if s not in found]
+        # Categories present on the page but not in our expected/covered map:
+        known = set(EXPECTED_CATEGORY_SLUGS)
+        new_on_page = []
+        for a in soup.find_all("a", href=True):
+            href = a["href"].lower()
+            if "/ut-incentive-lists/" in href and href.rstrip("/").endswith(".html"):
+                slug = href.rstrip("/").rsplit("/", 1)[-1].replace(".html", "")
+                if slug and slug not in known and slug not in new_on_page:
+                    new_on_page.append(slug)
+        if new_on_page:
+            print("    [COVERAGE] RMP lists new/uncovered categories: "
+                  + ", ".join(sorted(new_on_page)) + " -- add measures in rocky_mountain.py")
+        if missing_from_page:
+            print("    [COVERAGE] Expected categories not found on RMP index (page may have changed): "
+                  + ", ".join(sorted(missing_from_page)))
+        if not new_on_page and not missing_from_page:
+            print("    [COVERAGE] All " + str(len(EXPECTED_CATEGORY_SLUGS))
+                  + " RMP Utah categories are covered.")
+    except Exception as exc:
+        print("    [COVERAGE] Could not audit RMP category index: " + str(exc))
 
 
 # Each dict is one measure. Keep names specific ("VFD Air Compressor (<=75 hp)")
@@ -138,7 +204,7 @@ MEASURES = [
         "cap": "",
         "baseline": "Existing fixture wattage x operating hours by building type",
         "minp": "Pre-approval recommended for projects over $2,000",
-        "url": URL["lists"],
+        "url": URL["lighting"],
         "notes": "Interior/exterior LED fixtures, high-bays, troffers, and networked lighting controls. RMP "
                  "publishes fixed per-fixture/per-lamp prescriptive amounts; larger or non-listed jobs use "
                  "custom at roughly $0.08-0.15/kWh first-year savings. Confirm current per-fixture amounts on "
@@ -164,7 +230,7 @@ MEASURES = [
         "cap": "",
         "baseline": "DOE-2 modeling or Utah climate-zone-5 prescriptive estimates",
         "minp": "Pre-approval recommended for projects over $5,000",
-        "url": URL["lists"],
+        "url": URL["envelope"],
         "notes": "Roof/wall insulation and cool roofs. Prescriptive $/sq ft amounts apply for common upgrades; "
                  "larger scopes use custom energy modeling. Confirm current per-sq-ft amounts on RMP's "
                  "incentive lists.",
@@ -186,7 +252,7 @@ MEASURES = [
         "cap": "",
         "baseline": "Standard (non-high-efficiency) commercial equipment",
         "minp": "",
-        "url": URL["lists"],
+        "url": URL["appliances"],
         "notes": "Commercial refrigeration (ECM evaporator-fan motors, night covers, anti-sweat controls, "
                  "door gaskets, cases) and efficient commercial food-service/office equipment. Fixed per-unit "
                  "prescriptive amounts; confirm current values on RMP's incentive lists.",
@@ -196,6 +262,171 @@ MEASURES = [
                 "controls and ECM fan motors typically cut case energy 10-30% vs. standard.",
         "example": "Example: A grocery adds ECM evaporator-fan motors and night covers to 20 refrigerated "
                    "cases; the rebate is the sum of the per-unit prescriptive amounts for those measures.",
+    },
+    # ---- Motors & VFDs ----
+    {
+        "name": "wattsmart Business -- Motors & VFDs (Pumps / Fans)",
+        "tech": "Motors & Drives / VFD",
+        "value": "Prescriptive per hp; VFD custom by kWh",
+        "max": "Varies",
+        "rate": "Prescriptive per-hp amounts for premium-efficiency motors; VFDs paid on calculated kWh savings",
+        "tiers": "",
+        "cap": "",
+        "baseline": "NEMA Premium vs. standard motor; fixed-speed vs. VFD operation",
+        "minp": "Pre-approval recommended for larger drives",
+        "url": URL["motors"],
+        "notes": "NEMA Premium-efficiency motors and variable-frequency drives on pumps, fans, and other "
+                 "variable-load equipment. Motors typically have a fixed per-hp prescriptive amount; VFDs are "
+                 "paid on calculated annual kWh savings. Confirm current per-hp and VFD amounts on RMP's motors "
+                 "& drives list. (Compressed-air VFDs use the compressed-air program at $0.15/kWh.)",
+        "impl": "1. Identify motors/loads suited to premium motors or VFDs. 2. Get bids; pre-approve larger "
+                "drives. 3. Install. 4. Submit the application with nameplate data and invoices. 5. Receive rebate.",
+        "meth": "Premium motors: fixed $ per hp by size. VFDs: (fixed-speed kWh - variable-speed kWh) x rate, "
+                "with savings driven by load profile (variable-torque loads like pumps/fans save the most).",
+        "example": "Example: A VFD on a 40 hp supply fan running at part load saves ~45,000 kWh/yr; the calculated "
+                   "incentive plus a per-hp motor rebate offsets much of the drive cost. Confirm current amounts.",
+    },
+    # ---- Food service ----
+    {
+        "name": "wattsmart Business -- Commercial Food Service Equipment",
+        "tech": "Food Service / Refrigeration",
+        "value": "Prescriptive per qualifying appliance",
+        "max": "Varies",
+        "rate": "Fixed per-unit amounts for efficient commercial kitchen equipment",
+        "tiers": "",
+        "cap": "",
+        "baseline": "Standard commercial food-service equipment",
+        "minp": "",
+        "url": URL["foodservice"],
+        "notes": "Efficient commercial kitchen equipment -- convection/combi ovens, fryers, steamers, "
+                 "dishwashers, griddles, and refrigeration. Fixed per-unit prescriptive amounts; confirm current "
+                 "values on RMP's food service list.",
+        "impl": "1. Select qualifying ENERGY STAR / high-efficiency food-service equipment. 2. Purchase and "
+                "install. 3. Submit the rebate application with proof of purchase and model numbers.",
+        "meth": "Rebate is a fixed amount per qualifying appliance from RMP's food-service list.",
+        "example": "Example: A restaurant replaces a standard convection oven and adds an ENERGY STAR dishwasher; "
+                   "the rebate is the sum of the per-unit amounts for those appliances.",
+    },
+    # ---- Agriculture / irrigation ----
+    {
+        "name": "wattsmart Business -- Agriculture & Irrigation",
+        "tech": "Irrigation / Agricultural",
+        "value": "Prescriptive + calculated ag measures",
+        "max": "Varies",
+        "rate": "Per-unit and calculated-kWh amounts for irrigation and farm-efficiency measures",
+        "tiers": "",
+        "cap": "",
+        "baseline": "Existing irrigation hardware / pump efficiency",
+        "minp": "RMP agricultural customers",
+        "url": URL["agriculture"],
+        "notes": "Irrigation and farm efficiency: sprinkler-package upgrades, nozzles/regulators, VFDs and "
+                 "efficient motors on irrigation pumps, scientific irrigation scheduling, dairy/livestock "
+                 "measures, and grain/crop drying. Mix of prescriptive per-unit amounts and calculated savings; "
+                 "confirm current amounts on RMP's agriculture page.",
+        "impl": "1. Contact RMP's agricultural team or a Trade Ally for an assessment. 2. Identify qualifying "
+                "measures (nozzles, VFDs, pumps, scheduling). 3. Install and submit the application with invoices.",
+        "meth": "Prescriptive per-unit amounts for hardware (e.g. sprinkler heads/regulators) plus calculated "
+                "kWh savings for pump/VFD upgrades based on wire-to-water efficiency and run hours.",
+        "example": "Example: A Utah farm upgrades pivot sprinkler packages and adds a VFD to a 50 hp irrigation "
+                   "pump; prescriptive hardware rebates plus calculated pump savings offset much of the cost.",
+    },
+    # ---- Wastewater / process ----
+    {
+        "name": "wattsmart Business -- Wastewater & Process (Aeration / Blowers)",
+        "tech": "Motors & Drives / Process",
+        "value": "Calculated by kWh saved",
+        "max": "Varies",
+        "rate": "Calculated incentive on annual kWh savings (aeration, blowers, pumps, controls)",
+        "tiers": "",
+        "cap": "",
+        "baseline": "Existing aeration/blower/pump system performance",
+        "minp": "Engineering analysis / pre-approval",
+        "url": URL["wastewater"],
+        "notes": "Water and wastewater treatment efficiency -- high-efficiency blowers, aeration controls "
+                 "(dissolved-oxygen control), VFDs on blowers and pumps, and other refrigeration/process "
+                 "measures. Paid on calculated annual kWh savings; confirm current terms on RMP's wastewater page.",
+        "impl": "1. Assess the aeration/pumping system with RMP or an engineer. 2. Identify measures (efficient "
+                "blowers, DO control, VFDs). 3. Submit the application with the savings analysis. 4. Install and "
+                "verify. 5. Receive incentive.",
+        "meth": "Incentive = calculated annual kWh savings x the applicable rate. Aeration is often the largest "
+                "electrical load at a treatment plant, so blower/DO-control upgrades yield large savings.",
+        "example": "Example: A municipal plant adds dissolved-oxygen control and VFDs to its aeration blowers, "
+                   "cutting blower energy ~30%; the calculated incentive offsets a large share of the project.",
+    },
+    # ---- Oil & gas ----
+    {
+        "name": "wattsmart Business -- Oil & Gas Field Efficiency",
+        "tech": "Motors & Drives / Process",
+        "value": "Calculated by kWh saved",
+        "max": "Varies",
+        "rate": "Calculated incentive on annual kWh savings for oil & gas field/production equipment",
+        "tiers": "",
+        "cap": "",
+        "baseline": "Existing production/compression/pumping equipment",
+        "minp": "Engineering analysis / pre-approval",
+        "url": URL["oil_gas"],
+        "notes": "Efficiency measures for oil & gas operations -- VFDs and efficient motors on pump jacks, "
+                 "compressors, and pumps, plus process improvements. Paid on calculated annual kWh savings; "
+                 "confirm current terms on RMP's oil & gas page.",
+        "impl": "1. Assess field/production loads with RMP or an engineer. 2. Identify qualifying measures. "
+                "3. Submit the application with the savings analysis. 4. Install and verify. 5. Receive incentive.",
+        "meth": "Incentive = calculated annual kWh savings x the applicable rate, based on the specific "
+                "production/compression/pumping measure.",
+        "example": "Example: An operator adds VFDs to electric submersible pumps and optimizes compression; the "
+                   "calculated incentive is based on the verified annual kWh reduction.",
+    },
+    # ---- Whole-building new construction / major renovation ----
+    {
+        "name": "wattsmart Business -- Whole-Building New Construction / Major Renovation",
+        "tech": "Multiple Technologies",
+        "value": "Whole-building performance incentive by modeled savings",
+        "max": "Varies",
+        "rate": "Incentive scaled to modeled whole-building energy savings vs. code (performance path)",
+        "tiers": "",
+        "cap": "",
+        "baseline": "ASHRAE 90.1 / Utah energy code reference building",
+        "minp": "New construction or major renovation; energy modeling required",
+        "url": URL["wbnc"],
+        "notes": "For new construction and major renovations: a whole-building performance-path incentive scaled "
+                 "to modeled energy savings beyond code, plus access to prescriptive measures. Also a system-by-"
+                 "system path for individual upgrades. Confirm current incentive structure on RMP's WBNC page.",
+        "impl": "1. Engage RMP early in design. 2. Model the building vs. ASHRAE 90.1 / Utah code. 3. Choose the "
+                "whole-building performance path or system-by-system prescriptive measures. 4. Submit the "
+                "application with modeling. 5. Build and verify. 6. Receive incentive.",
+        "meth": "Whole-building path: incentive scales with modeled % energy savings vs. the code baseline. "
+                "System path: sum of prescriptive measure amounts.",
+        "example": "Example: A new 80,000 sq ft office modeled 25% better than code earns a whole-building "
+                   "incentive plus prescriptive lighting/HVAC rebates; confirm the current per-savings rate.",
+    },
+    # ---- Battery storage (separate wattsmart Battery / dispatch program) ----
+    {
+        "name": "wattsmart Battery -- Commercial Battery Storage (dispatch)",
+        "tech": "Energy Storage / Battery",
+        "value": "Per kW of battery capacity (upfront + annual bill credit)",
+        "max": "Scales with enrolled battery kW",
+        "rate": "Incentive per kW of committed battery capacity: an upfront incentive plus an ongoing annual "
+                "bill credit (confirm current commercial $/kW with RMP)",
+        "tiers": "",
+        "cap": "",
+        "baseline": "Battery power capacity (kW) enrolled for utility dispatch",
+        "minp": "Enroll the battery in RMP's dispatch program; solar or solar+battery may be required",
+        "url": URL["battery"],
+        "notes": "Rocky Mountain Power's wattsmart Battery program pays an incentive based on battery size (kW) "
+                 "in exchange for letting the utility dispatch the battery (a virtual power plant). Published "
+                 "residential terms are about $150/kW for each committed year plus a $15/kW annual bill credit; "
+                 "commercial terms are set by RMP and were updated in 2026 -- confirm the current commercial "
+                 "$/kW, term length, and eligibility (solar/solar+battery requirement). Stacks with the 30% "
+                 "federal storage ITC, which is usually the larger incentive when buying a battery.",
+        "impl": "1. Contact Rocky Mountain Power (or a participating battery installer) about wattsmart Battery "
+                "enrollment. 2. Confirm eligibility and current commercial $/kW and term. 3. Install a qualifying "
+                "battery and enroll it for dispatch. 4. Receive the upfront incentive and ongoing annual bill "
+                "credit. 5. Separately claim the 30% federal ITC on the battery.",
+        "meth": "Incentive = committed battery kW x the program's $/kW upfront rate (per committed year) plus a "
+                "$/kW annual bill credit for participating years. Value scales with enrolled power capacity (kW).",
+        "example": "Example: A business enrolls a 100 kW battery. Using published residential reference rates "
+                   "(~$150/kW/yr committed + $15/kW annual credit) the utility incentive is on the order of "
+                   "thousands per year; confirm the current commercial figures. Separately, a $300,000 battery "
+                   "earns a 0.30 x $300,000 = $90,000 federal ITC.",
     },
     # ---- Custom catch-all (only for measures with no prescriptive rate) ----
     {
