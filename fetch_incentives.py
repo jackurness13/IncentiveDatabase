@@ -21,6 +21,7 @@ import sqlite3
 import importlib
 import json
 import shutil
+import base64
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from collections import Counter
@@ -37,6 +38,25 @@ HTML_PATH = BASE_DIR / "incentives.html"
 LOG_PATH = BASE_DIR / "run_log.txt"
 # GitHub Pages publishes this folder (Settings -> Pages -> Source: GitHub Actions).
 SITE_DIR = BASE_DIR / "site"
+# UCREW brand logo (vendored in-repo so CI builds have no external dependency).
+LOGO_PATH = BASE_DIR / "assets" / "ucrew-logo.svg"
+
+# UCREW brand palette (derived from the logo red #be0000). Used to theme the site.
+BRAND = "#be0000"        # UCREW red -- primary
+BRAND_DARK = "#8a0000"   # hover / gradient bottom
+BRAND_DARKER = "#6b0000" # deepest shade
+
+
+def _logo_data_uri():
+    """Return the UCREW logo as a base64 data URI so the HTML stays self-contained
+    (works when double-clicked and when served from GitHub Pages, no asset copy)."""
+    try:
+        raw = LOGO_PATH.read_bytes()
+    except OSError:
+        return ""
+    b64 = base64.b64encode(raw).decode("ascii")
+    return "data:image/svg+xml;base64," + b64
+
 
 STATE_COLORS = {
     "UT": "FF4E79A7",
@@ -356,6 +376,7 @@ def _write_html(rows):
 
     today = date.today()
     warn_date = today + timedelta(days=30)
+    logo_uri = _logo_data_uri()
 
     html_colors = {
         "UT": "#4E79A7", "MT": "#59A14F",
@@ -457,12 +478,24 @@ def _write_html(rows):
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>UCREW -- Commercial &amp; Industrial Energy Incentives (UT, MT, ID, NV)</title>
+<link rel="icon" type="image/svg+xml" href=\"""" + logo_uri + """\">
 <style>
+:root {
+  --brand: """ + BRAND + """;
+  --brand-dark: """ + BRAND_DARK + """;
+  --brand-darker: """ + BRAND_DARKER + """;
+  --brand-tint: #fbeaea;          /* light red row/hover wash */
+  --brand-tint-border: #f0cccc;
+  --money: #1f6e1f;               /* green -- dollar figures / savings */
+}
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; background: #f4f6f9; color: #222; }
-header { background: #1f3864; color: #fff; padding: 18px 24px; }
+header { background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%); color: #fff; padding: 18px 24px; }
+.header-inner { display: flex; align-items: center; gap: 18px; }
+.brand-logo { height: 46px; width: auto; flex-shrink: 0; filter: brightness(0) invert(1); }
+.header-text { flex: 1; min-width: 0; }
 header h1 { font-size: 20px; }
-header p { font-size: 12px; opacity: .7; margin-top: 4px; }
+header p { font-size: 12px; opacity: .8; margin-top: 4px; }
 .controls { padding: 12px 24px; background: #fff; border-bottom: 1px solid #ddd; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .controls input, .controls select { padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; }
 .controls input { width: 200px; }
@@ -471,37 +504,37 @@ header p { font-size: 12px; opacity: .7; margin-top: 4px; }
 #count { font-size: 12px; color: #555; }
 .table-wrap { overflow-x: auto; padding: 16px 24px; }
 table { width: 100%; border-collapse: collapse; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.08); border-radius: 6px; overflow: hidden; }
-th { background: #1f3864; color: #fff; padding: 8px 10px; text-align: left; cursor: pointer; white-space: nowrap; font-size: 12px; user-select: none; }
-th:hover { background: #2a4a8f; }
+th { background: var(--brand); color: #fff; padding: 8px 10px; text-align: left; cursor: pointer; white-space: nowrap; font-size: 12px; user-select: none; }
+th:hover { background: var(--brand-dark); }
 th.asc::after { content: " \25b2"; font-size: 10px; }
 th.desc::after { content: " \25bc"; font-size: 10px; }
 td { padding: 6px 10px; border-bottom: 1px solid #eee; vertical-align: top; font-size: 12px; }
 tr:last-child td { border-bottom: none; }
-tr:hover td { background: #f0f4ff !important; }
+tr:hover td { background: var(--brand-tint) !important; }
 tr.expired td { color: #aaa; background: #fafafa; }
 tr.paused td { background: #fffde7; }
 tr.expiring td { background: #fff8e1; }
 tr.hidden { display: none; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; color: #fff; font-weight: 700; font-size: 11px; }
-a { color: #1f3864; text-decoration: none; }
+a { color: var(--brand); text-decoration: none; }
 a:hover { text-decoration: underline; }
-.detail-btn { background: none; border: none; color: #1f3864; cursor: pointer; text-align: left; font-size: 12px; padding: 0; font-family: inherit; text-decoration: underline; text-decoration-style: dotted; }
-.detail-btn:hover { color: #2a4a8f; }
+.detail-btn { background: none; border: none; color: var(--brand); cursor: pointer; text-align: left; font-size: 12px; padding: 0; font-family: inherit; text-decoration: underline; text-decoration-style: dotted; }
+.detail-btn:hover { color: var(--brand-dark); }
 td:nth-child(2) { min-width: 180px; max-width: 280px; }
-td.money { font-weight: 700; color: #1f6e1f; white-space: nowrap; }
+td.money { font-weight: 700; color: var(--money); white-space: nowrap; }
 tr.expired td.money { color: #9bb69b; }
 .header-badges { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .hbadge { display: inline-block; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.25); color: #fff; font-size: 12px; padding: 3px 10px; border-radius: 12px; }
 .hbadge.scanned { background: #2d8c2d; border-color: #2d8c2d; font-weight: 600; }
 .dl-links { display: flex; gap: 8px; align-items: center; }
-.dl-btn { display: inline-block; background: #eef2f9; border: 1px solid #cdd8ea; color: #1f3864; padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; }
-.dl-btn:hover { background: #dfe7f5; text-decoration: none; }
+.dl-btn { display: inline-block; background: var(--brand-tint); border: 1px solid var(--brand-tint-border); color: var(--brand); padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+.dl-btn:hover { background: #f6dada; text-decoration: none; }
 
 /* Modal */
 .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 100; overflow-y: auto; padding: 40px 20px; }
 .overlay.open { display: flex; align-items: flex-start; justify-content: center; }
 .modal { background: #fff; border-radius: 10px; max-width: 800px; width: 100%; box-shadow: 0 8px 40px rgba(0,0,0,.25); }
-.modal-header { background: #1f3864; color: #fff; padding: 20px 24px; border-radius: 10px 10px 0 0; display: flex; align-items: flex-start; gap: 12px; }
+.modal-header { background: var(--brand); color: #fff; padding: 20px 24px; border-radius: 10px 10px 0 0; display: flex; align-items: flex-start; gap: 12px; }
 .modal-header h2 { font-size: 16px; flex: 1; line-height: 1.4; }
 .modal-header .state-badge { font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 12px; white-space: nowrap; }
 .close-btn { background: none; border: none; color: rgba(255,255,255,.8); font-size: 22px; cursor: pointer; padding: 0 4px; line-height: 1; }
@@ -513,14 +546,14 @@ tr.expired td.money { color: #9bb69b; }
 .meta-label { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: #888; margin-bottom: 3px; }
 .meta-value { font-size: 13px; font-weight: 600; color: #222; }
 .meta-value.highlight { color: #1f6e1f; font-size: 15px; }
-.meta-value a { color: #1f3864; }
+.meta-value a { color: var(--brand); }
 .status-active { color: #1f6e1f; }
 .status-paused { color: #b45309; }
 .status-pending { color: #6d4c41; }
 .status-expired { color: #888; }
 .section { padding: 20px 24px; border-bottom: 1px solid #eee; }
 .section:last-child { border-bottom: none; }
-.section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #1f3864; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+.section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--brand); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
 .section-title::after { content: ''; flex: 1; height: 1px; background: #e0e7f0; }
 .section-body { font-size: 13px; line-height: 1.7; color: #333; white-space: pre-line; }
 .example-box { background: #f0f7f0; border-left: 3px solid #2d8c2d; border-radius: 0 6px 6px 0; padding: 14px 16px; font-size: 13px; line-height: 1.7; white-space: pre-line; }
@@ -533,19 +566,24 @@ tr.expired td.money { color: #9bb69b; }
 .num { background: #d9f0d9; color: #145214; border-radius: 3px; padding: 0 3px; font-weight: 700; }
 @media (max-width: 520px) { .calc-row { grid-template-columns: 1fr; gap: 2px; } }
 .modal-footer { padding: 16px 24px; background: #f8f9fa; border-radius: 0 0 10px 10px; display: flex; justify-content: space-between; align-items: center; }
-.apply-btn { display: inline-block; background: #1f3864; color: #fff; padding: 9px 20px; border-radius: 5px; text-decoration: none; font-size: 13px; font-weight: 600; }
-.apply-btn:hover { background: #2a4a8f; color: #fff; text-decoration: none; }
+.apply-btn { display: inline-block; background: var(--brand); color: #fff; padding: 9px 20px; border-radius: 5px; text-decoration: none; font-size: 13px; font-weight: 600; }
+.apply-btn:hover { background: var(--brand-dark); color: #fff; text-decoration: none; }
 .last-scraped { font-size: 11px; color: #999; }
 </style>
 </head>
 <body>
 <header>
-  <h1>UCREW &middot; Commercial &amp; Industrial Energy Incentives</h1>
-  <p>Utah &middot; Montana &middot; Idaho &middot; Nevada &nbsp;|&nbsp; Click any program name for the full calculation breakdown</p>
-  <div class="header-badges">
-    <span class="hbadge scanned">Last scanned: """ + str(today) + """ &middot; refreshes daily</span>
-    <span class="hbadge">""" + str(len(rows)) + """ programs</span>
-    <span class="hbadge">Commercial &amp; Industrial facilities only</span>
+  <div class="header-inner">
+    <img class="brand-logo" src=\"""" + logo_uri + """\" alt="UCREW">
+    <div class="header-text">
+      <h1>Commercial &amp; Industrial Energy Incentives</h1>
+      <p>Utah &middot; Montana &middot; Idaho &middot; Nevada &nbsp;|&nbsp; Click any program name for the full calculation breakdown</p>
+      <div class="header-badges">
+        <span class="hbadge scanned">Last scanned: """ + str(today) + """ &middot; refreshes daily</span>
+        <span class="hbadge">""" + str(len(rows)) + """ programs</span>
+        <span class="hbadge">Commercial &amp; Industrial facilities only</span>
+      </div>
+    </div>
   </div>
 </header>
 <div class="controls">
