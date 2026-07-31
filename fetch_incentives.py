@@ -22,6 +22,7 @@ import importlib
 import json
 import shutil
 import base64
+import re
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from collections import Counter
@@ -80,6 +81,108 @@ DETAIL_COLUMNS = [
 ]
 
 ALL_COLUMNS = COLUMNS + DETAIL_COLUMNS
+
+
+# ---------------------------------------------------------------------------
+# Equipment classification (UCREW audit categories).
+#
+# ONE keyword vocabulary drives two things:
+#   1. build-time: every program is auto-tagged with the equipment categories
+#      its text mentions (name + technology + methodology + example + notes).
+#   2. run-time: the "AR Finder" box in the site maps a typed assessment
+#      recommendation (e.g. "Install VFD on compressors") to the same
+#      categories, then surfaces the programs tagged with them.
+#
+# Matching is case-insensitive and word-boundary aware: a keyword matches only
+# at the start of a word, but trailing letters are allowed so the lowercase root
+# "compressor" also matches "compressors". This prevents false hits like "led"
+# inside "controlled". Recall is favored over precision -- a discovery aid, not a
+# billing engine.
+# ---------------------------------------------------------------------------
+EQUIPMENT_KEYWORDS = {
+    "Lighting": [
+        "lighting", "light fixture", "led", "lamp", "luminaire", "high bay",
+        "high-bay", "troffer", "t8", "t5", "fluorescent", "daylighting",
+        "occupancy sensor", "exit sign", "delamping",
+    ],
+    "Compressed Air": [
+        "compressed air", "compressor", "air compressor", "vsd compressor",
+        "air dryer", "air leak", "compressed-air",
+    ],
+    "HVAC": [
+        "hvac", "air conditioning", "air conditioner", "rooftop unit", "rtu",
+        "chiller", "cooling", "furnace", "heat pump", "thermostat", "economizer",
+        "ventilation", "make-up air", "makeup air", "space heating", "packaged unit",
+        "mini split", "mini-split", "vrf",
+    ],
+    "Boilers & Steam": [
+        "boiler", "steam", "condensate", "steam trap", "burner", "hot water heating",
+        "linkageless", "combustion",
+    ],
+    "Motors & Drives": [
+        "vfd", "variable frequency drive", "variable-frequency", "vsd",
+        "variable speed", "adjustable speed", "premium efficiency motor",
+        "efficient motor", "motor", "drive", "ecm",
+    ],
+    "Pumps": [
+        "pump", "pumping",
+    ],
+    "Fans": [
+        "fan", "exhaust fan", "ec motor", "ceiling fan",
+    ],
+    "Refrigeration": [
+        "refrigeration", "refrigerated", "walk-in cooler", "walk-in freezer",
+        "walk in cooler", "cooler", "freezer", "evaporator", "night cover",
+        "anti-sweat", "strip curtain", "case lighting",
+    ],
+    "Process Heating": [
+        "process heat", "oven", "kiln", "industrial dryer", "heat recovery",
+        "waste heat", "process load",
+    ],
+    "Building Envelope": [
+        "insulation", "weatherization", "envelope", "window", "roof", "air sealing",
+        "pipe insulation", "cool roof", "door seal",
+    ],
+    "Water Heating": [
+        "water heater", "water heating", "domestic hot water", "dhw",
+        "heat pump water heater", "hpwh", "tankless",
+    ],
+    "Controls / EMS": [
+        "controls", "control system", "ems", "bms", "building automation",
+        "energy management system", "setback", "network lighting control",
+        "sensor", "retrocommissioning", "retro-commissioning", "commissioning",
+    ],
+    "Irrigation": [
+        "irrigation", "sprinkler", "center pivot", "agricultural pump",
+        "wire-to-water", "scientific irrigation scheduling",
+    ],
+    "Custom / Whole Facility": [
+        "custom", "multiple technolog", "whole building", "whole-building",
+        "whole facility", "comprehensive", "strategic energy management",
+        "energy audit", "new construction", "any measure", "all measures",
+    ],
+}
+
+# Programs tagged with any of these categories are treated as broad measures
+# that plausibly cover almost any recommendation, so the AR Finder always
+# surfaces them (flagged separately as "custom / whole-facility").
+CUSTOM_CATEGORIES = {"Custom / Whole Facility"}
+
+
+def _kw_hit(keyword, text):
+    """True if ``keyword`` appears at a word boundary in ``text`` (trailing
+    letters allowed, so "compressor" also matches "compressors")."""
+    return re.search(r"\b" + re.escape(keyword), text) is not None
+
+
+def classify_equipment(text):
+    """Return the sorted list of equipment categories whose keywords appear in
+    ``text`` (case-insensitive, word-boundary aware)."""
+    t = (text or "").lower()
+    hits = [cat for cat, kws in EQUIPMENT_KEYWORDS.items()
+            if any(_kw_hit(kw, t) for kw in kws)]
+    return sorted(hits)
+
 
 
 def main():
@@ -408,6 +511,15 @@ def _write_html(rows):
         url = str(row.get("Application URL") or "")
         name = str(row.get("Program Name") or "")
 
+        # Auto-classify this program into UCREW equipment categories by scanning
+        # its full text. Powers the AR Finder search and the modal chips.
+        classify_text = " ".join(str(row.get(c) or "") for c in (
+            "Program Name", "Technology", "Sector", "Incentive Type",
+            "_methodology", "_implementation", "_example", "Notes",
+        ))
+        equipment = classify_equipment(classify_text)
+        is_custom = any(c in CUSTOM_CATEGORIES for c in equipment)
+
         # Store detail data in JS object
         detail_data[row_idx] = {
             "name": name,
@@ -433,6 +545,8 @@ def _write_html(rows):
             "cap": str(row.get("_unit_cap") or ""),
             "baseline": str(row.get("_baseline") or ""),
             "minProject": str(row.get("_min_project") or ""),
+            "equipment": equipment,
+            "custom": is_custom,
         }
 
         cells = [
@@ -456,6 +570,8 @@ def _write_html(rows):
             'data-type="' + _esc(str(row.get("Incentive Type") or "")) + '" '
             'data-sector="' + _esc(str(row.get("Sector") or "")) + '" '
             'data-tech="' + _esc(str(row.get("Technology") or "")) + '" '
+            'data-equipment="' + _esc(";".join(equipment)) + '" '
+            'data-custom="' + ("1" if is_custom else "0") + '" '
             'data-idx="' + str(row_idx) + '">'
             + "".join(cells) + "</tr>"
         )
@@ -530,6 +646,31 @@ tr.expired td.money { color: #9bb69b; }
 .dl-btn { display: inline-block; background: var(--brand-tint); border: 1px solid var(--brand-tint-border); color: var(--brand); padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; }
 .dl-btn:hover { background: #f6dada; text-decoration: none; }
 
+/* AR Finder */
+.ar-bar { background: linear-gradient(135deg, #fff 0%, var(--brand-tint) 100%); border-bottom: 1px solid var(--brand-tint-border); padding: 16px 24px; }
+.ar-inner { max-width: 960px; }
+.ar-label { display: block; font-size: 13px; font-weight: 700; color: var(--brand); margin-bottom: 8px; letter-spacing: .2px; }
+.ar-row { display: flex; gap: 8px; }
+.ar-input { flex: 1; padding: 11px 14px; border: 2px solid var(--brand-tint-border); border-radius: 6px; font-size: 14px; font-family: inherit; background: #fff; }
+.ar-input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(190,0,0,.12); }
+.ar-clear { border: 1px solid #ccc; background: #fff; color: #555; border-radius: 6px; padding: 0 14px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.ar-clear:hover { background: #f4f4f4; }
+.ar-result { font-size: 12.5px; color: #333; margin-top: 10px; line-height: 1.6; }
+.ar-result:empty { display: none; }
+.ar-result .eq-chip { display: inline-block; background: var(--brand); color: #fff; border-radius: 11px; padding: 2px 9px; font-size: 11px; font-weight: 700; margin: 0 3px 3px 0; }
+.ar-result .miss { color: #999; }
+.ar-result b { color: var(--brand); }
+.ar-examples { margin-top: 10px; font-size: 12px; color: #777; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ar-try { font-weight: 600; }
+.ar-chip-btn { border: 1px solid var(--brand-tint-border); background: #fff; color: var(--brand); border-radius: 12px; padding: 3px 10px; font-size: 11.5px; font-family: inherit; cursor: pointer; }
+.ar-chip-btn:hover { background: var(--brand-tint); }
+tr.ar-custom td { background: #fffdf5; }
+tr.ar-custom td:first-child { box-shadow: inset 3px 0 0 #e6b800; }
+td .eq-tag { display: inline-block; background: #f0e6e6; color: #7a3a3a; border-radius: 9px; padding: 1px 7px; font-size: 10px; font-weight: 700; margin: 1px 2px 1px 0; }
+.match-tag { display: inline-block; background: var(--brand); color: #fff; border-radius: 9px; padding: 1px 7px; font-size: 10px; font-weight: 700; margin-left: 6px; vertical-align: middle; }
+.custom-tag { display: inline-block; background: #e6b800; color: #4a3b00; border-radius: 9px; padding: 1px 7px; font-size: 10px; font-weight: 700; margin-left: 6px; vertical-align: middle; }
+.equip-chip { display: inline-block; background: var(--brand-tint); color: var(--brand); border: 1px solid var(--brand-tint-border); border-radius: 12px; padding: 4px 11px; font-size: 12px; font-weight: 700; margin: 0 5px 5px 0; }
+
 /* Modal */
 .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 100; overflow-y: auto; padding: 40px 20px; }
 .overlay.open { display: flex; align-items: flex-start; justify-content: center; }
@@ -586,6 +727,25 @@ tr.expired td.money { color: #9bb69b; }
     </div>
   </div>
 </header>
+<div class="ar-bar">
+  <div class="ar-inner">
+    <label class="ar-label" for="ar-input">&#128269; Find incentives for a recommendation (AR)</label>
+    <div class="ar-row">
+      <input type="text" id="ar-input" class="ar-input" autocomplete="off"
+             placeholder="Describe the measure, e.g. &quot;Install VFD on compressors&quot; or &quot;Install lighting controls&quot;"
+             oninput="applyFilters()">
+      <button type="button" class="ar-clear" id="ar-clear" onclick="clearAr()">Clear</button>
+    </div>
+    <div class="ar-result" id="ar-result"></div>
+    <div class="ar-examples"><span class="ar-try">Try:</span>
+      <button type="button" class="ar-chip-btn" onclick="setAr(this.textContent)">Install VFD on compressors</button>
+      <button type="button" class="ar-chip-btn" onclick="setAr(this.textContent)">Install lighting controls</button>
+      <button type="button" class="ar-chip-btn" onclick="setAr(this.textContent)">Add VFD to HVAC supply fan</button>
+      <button type="button" class="ar-chip-btn" onclick="setAr(this.textContent)">Replace boiler; add heat recovery</button>
+      <button type="button" class="ar-chip-btn" onclick="setAr(this.textContent)">Refrigeration controls upgrade</button>
+    </div>
+  </div>
+</div>
 <div class="controls">
   <input type="text" id="search" placeholder="Search all fields..." oninput="applyFilters()">
   <select id="f-state" onchange="applyFilters()">""" + options(states) + """</select>
@@ -639,6 +799,10 @@ tr.expired td.money { color: #9bb69b; }
       <div class="meta-item"><div class="meta-label">Eligible Recipients</div><div class="meta-value" id="m-recip"></div></div>
       <div class="meta-item"><div class="meta-label">Expiration</div><div class="meta-value" id="m-exp"></div></div>
     </div>
+    <div id="m-equip-section" class="section">
+      <div class="section-title">Applies to Equipment</div>
+      <div id="m-equip"></div>
+    </div>
     <div id="m-calc-section" class="section">
       <div class="section-title">Calculation Values (numbers used in savings math)</div>
       <div class="calc-panel" id="m-calc-panel"></div>
@@ -670,7 +834,51 @@ tr.expired td.money { color: #9bb69b; }
 <script>
 var DETAILS = """ + detail_json + """;
 var HTML_COLORS = {"UT":"#4E79A7","MT":"#59A14F","ID":"#F28E2B","NV":"#E15759"};
+// Equipment vocabulary -- same map the build step used to tag each program, so a
+// typed recommendation resolves to the exact categories the programs carry.
+var EQUIP_KEYWORDS = """ + json.dumps(EQUIPMENT_KEYWORDS, ensure_ascii=True) + """;
+var CUSTOM_CATEGORIES = """ + json.dumps(sorted(CUSTOM_CATEGORIES), ensure_ascii=True) + """;
 var sortCol = -1, sortDir = 1;
+
+// Word-boundary keyword test mirroring the Python classifier: the keyword must
+// start at a word boundary, but trailing letters are allowed ("compressor"
+// matches "compressors"). Avoids false hits like "led" inside "controlled".
+function kwHit(hay, needle) {
+  var idx = hay.indexOf(needle);
+  while (idx >= 0) {
+    var before = idx === 0 ? ' ' : hay.charAt(idx - 1);
+    if (!/[a-z0-9]/.test(before)) return true;
+    idx = hay.indexOf(needle, idx + 1);
+  }
+  return false;
+}
+
+// Map a free-text assessment recommendation to equipment categories by scanning
+// for the same keywords used to tag programs. Custom/whole-facility buckets are
+// excluded here -- those surface automatically for every AR, not by keyword.
+function arCategories(text) {
+  var t = String(text).toLowerCase();
+  var cats = [];
+  for (var cat in EQUIP_KEYWORDS) {
+    if (CUSTOM_CATEGORIES.indexOf(cat) >= 0) continue;
+    var kws = EQUIP_KEYWORDS[cat];
+    for (var i = 0; i < kws.length; i++) {
+      if (kwHit(t, kws[i])) { cats.push(cat); break; }
+    }
+  }
+  return cats;
+}
+
+function setAr(text) {
+  document.getElementById('ar-input').value = text;
+  applyFilters();
+  document.getElementById('ar-input').focus();
+}
+
+function clearAr() {
+  document.getElementById('ar-input').value = '';
+  applyFilters();
+}
 
 // Escape HTML, then wrap money / % / kWh / therm figures in a highlight span so the
 // actual numbers used in calculations stand out inside the prose sections.
@@ -708,6 +916,17 @@ function openDetail(idx) {
     notesSection.style.display = '';
   } else {
     notesSection.style.display = 'none';
+  }
+  // Equipment categories this program applies to (auto-classified)
+  var equipSection = document.getElementById('m-equip-section');
+  var equip = d.equipment || [];
+  if (equip.length) {
+    document.getElementById('m-equip').innerHTML = equip.map(function(c) {
+      return '<span class="equip-chip">' + escHtml(c) + '</span>';
+    }).join(' ');
+    equipSection.style.display = '';
+  } else {
+    equipSection.style.display = 'none';
   }
   // Calculation Values panel -- only rows with a value are shown; hide panel if all blank
   var calcFields = [
@@ -753,6 +972,68 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeDetail();
 });
 
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Remove any AR match tag / styling from a row (called every pass so tags never stack).
+function annotateRow(row, arActive, overlap, isCustom) {
+  var cell = row.cells[1];
+  var old = cell.querySelector('.match-tag, .custom-tag');
+  if (old) old.remove();
+  row.classList.remove('ar-custom');
+  if (!arActive) return;
+  if (overlap.length > 0) {
+    var s = document.createElement('span');
+    s.className = 'match-tag';
+    s.textContent = 'match: ' + overlap.join(', ');
+    cell.appendChild(s);
+  } else if (isCustom) {
+    var c = document.createElement('span');
+    c.className = 'custom-tag';
+    c.textContent = 'custom / whole-facility';
+    cell.appendChild(c);
+    row.classList.add('ar-custom');
+  }
+}
+
+// When an AR is active, float the best matches to the top: specific equipment
+// matches first (most overlap first), then custom/whole-facility, expired last.
+function reorderForAr() {
+  var tbody = document.querySelector('#tbl tbody');
+  var rows = Array.from(tbody.querySelectorAll('tr'));
+  rows.sort(function(a, b) {
+    function grp(r) { return r._arSpecific ? 0 : (r._arCustom ? 1 : 2); }
+    var ga = grp(a), gb = grp(b);
+    if (ga !== gb) return ga - gb;
+    if (a._expired !== b._expired) return a._expired ? 1 : -1;
+    if (b._arScore !== a._arScore) return b._arScore - a._arScore;
+    return a.cells[1].textContent.localeCompare(b.cells[1].textContent);
+  });
+  rows.forEach(function(r) { tbody.appendChild(r); });
+  document.querySelectorAll('th').forEach(function(th) { th.className = ''; });
+  sortCol = -1;
+}
+
+function renderArBanner(arActive, arText, arCats, specificCount, customCount) {
+  var el = document.getElementById('ar-result');
+  if (!arActive) { el.innerHTML = ''; return; }
+  if (arCats.length === 0) {
+    el.innerHTML = 'No specific equipment recognized in <b>&ldquo;' + escHtml(arText) +
+      '&rdquo;</b>. Showing custom / whole-facility programs that can cover most measures, plus any text matches. ' +
+      'Try naming the equipment &mdash; compressor, lighting, boiler, motor/VFD, fan, pump, refrigeration&hellip;';
+    return;
+  }
+  var chips = arCats.map(function(c) { return '<span class="eq-chip">' + c + '</span>'; }).join(' ');
+  var msg = 'Matched equipment: ' + chips + ' &mdash; <b>' + specificCount + '</b> targeted incentive' +
+    (specificCount === 1 ? '' : 's');
+  if (customCount > 0) {
+    msg += ', plus <b>' + customCount + '</b> custom / whole-facility program' +
+      (customCount === 1 ? '' : 's') + ' that typically also apply';
+  }
+  el.innerHTML = msg + '. Best matches are listed first.';
+}
+
 function applyFilters() {
   var q = document.getElementById('search').value.toLowerCase();
   var state = document.getElementById('f-state').value;
@@ -760,23 +1041,50 @@ function applyFilters() {
   var sector = document.getElementById('f-sector').value;
   var tech = document.getElementById('f-tech').value;
   var status = document.getElementById('f-status').value;
-  var visible = 0;
+  var arText = document.getElementById('ar-input').value.trim();
+  var arActive = arText.length > 0;
+  var arCats = arActive ? arCategories(arText) : [];
+  document.getElementById('ar-clear').style.visibility = arActive ? 'visible' : 'hidden';
+
+  var visible = 0, specificCount = 0, customCount = 0;
   document.querySelectorAll('#tbl tbody tr').forEach(function(row) {
     var text = row.textContent.toLowerCase();
     var idx = row.dataset.idx;
     var d = DETAILS[idx] || {};
     var fullText = text + ' ' + (d.implementation || '').toLowerCase() + ' ' + (d.example || '').toLowerCase();
-    var match =
+    var base =
       (!q || fullText.indexOf(q) >= 0) &&
       (!state || row.dataset.state === state) &&
       (!type || row.dataset.type === type) &&
       (!sector || row.dataset.sector === sector) &&
       (!tech || row.dataset.tech === tech) &&
       (!status || (row.cells[12] && row.cells[12].textContent.trim() === status));
+
+    var overlap = [];
+    var isCustom = row.dataset.custom === '1';
+    if (arActive) {
+      var eq = (row.dataset.equipment || '').split(';').filter(Boolean);
+      overlap = eq.filter(function(c) { return arCats.indexOf(c) >= 0; });
+    }
+    row._arScore = overlap.length;
+    row._arSpecific = overlap.length > 0;
+    row._arCustom = isCustom;
+    row._expired = row.classList.contains('expired');
+
+    var arOk = !arActive || overlap.length > 0 || isCustom;
+    var match = base && arOk;
+    annotateRow(row, arActive, overlap, isCustom);
     row.classList.toggle('hidden', !match);
-    if (match) visible++;
+    if (match) {
+      visible++;
+      if (arActive && overlap.length > 0) specificCount++;
+      else if (arActive && isCustom) customCount++;
+    }
   });
+
+  if (arActive) reorderForAr();
   document.getElementById('count').textContent = visible + ' programs shown';
+  renderArBanner(arActive, arText, arCats, specificCount, customCount);
 }
 
 function sortTable(col) {
