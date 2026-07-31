@@ -491,10 +491,6 @@ def _write_html(rows):
     df = pd.DataFrame(rows, columns=ALL_COLUMNS)
     df = df.sort_values(["State", "Status", "Program Name"])
 
-    types = sorted(df["Incentive Type"].dropna().unique())
-    sectors = sorted(df["Sector"].dropna().unique())
-    techs = sorted(df["Technology"].dropna().unique())
-
     today = date.today()
     warn_date = today + timedelta(days=30)
     logo_uri = _logo_data_uri()
@@ -609,11 +605,6 @@ def _write_html(rows):
             'data-custom="' + ("1" if is_custom else "0") + '" '
             'data-idx="' + str(row_idx) + '">'
             + "".join(cells) + "</tr>"
-        )
-
-    def options(vals):
-        return '<option value="">All</option>' + "".join(
-            "<option>" + _esc(v) + "</option>" for v in vals
         )
 
     th_cells = "".join(
@@ -784,13 +775,6 @@ td .eq-tag { display: inline-block; background: #f0e6e6; color: #7a3a3a; border-
 <div class="controls">
   <input type="text" id="search" placeholder="Search all fields..." oninput="applyFilters()">
   """ + state_filter_html + """
-  <select id="f-type" onchange="applyFilters()"><option value="">All Types</option>""" + options(types) + """</select>
-  <select id="f-sector" onchange="applyFilters()"><option value="">All Sectors</option>""" + options(sectors) + """</select>
-  <select id="f-tech" onchange="applyFilters()"><option value="">All Technologies</option>""" + options(techs) + """</select>
-  <select id="f-status" onchange="applyFilters()">
-    <option value="">All Statuses</option>
-    <option>Active</option><option>Temporarily Paused</option><option>Pending</option><option>Expired</option>
-  </select>
   <span id="count"></span>
   <div class="dl-links">
     <a class="dl-btn" href="incentives.xlsx" download>&#8681; Excel</a>
@@ -1070,10 +1054,6 @@ function applyFilters() {
   var q = document.getElementById('search').value.toLowerCase();
   var stateEl = document.getElementById('f-state');
   var state = stateEl ? stateEl.value : '';
-  var type = document.getElementById('f-type').value;
-  var sector = document.getElementById('f-sector').value;
-  var tech = document.getElementById('f-tech').value;
-  var status = document.getElementById('f-status').value;
   var arText = document.getElementById('ar-input').value.trim();
   var arActive = arText.length > 0;
   var arCats = arActive ? arCategories(arText) : [];
@@ -1087,11 +1067,7 @@ function applyFilters() {
     var fullText = text + ' ' + (d.implementation || '').toLowerCase() + ' ' + (d.example || '').toLowerCase();
     var base =
       (!q || fullText.indexOf(q) >= 0) &&
-      (!state || row.dataset.state === state) &&
-      (!type || row.dataset.type === type) &&
-      (!sector || row.dataset.sector === sector) &&
-      (!tech || row.dataset.tech === tech) &&
-      (!status || (row.cells[12] && row.cells[12].textContent.trim() === status));
+      (!state || row.dataset.state === state);
 
     var overlap = [];
     var isCustom = row.dataset.custom === '1';
