@@ -551,14 +551,24 @@ def _write_html(rows):
         url = str(row.get("Application URL") or "")
         name = str(row.get("Program Name") or "")
 
-        # Auto-classify this program into UCREW equipment categories by scanning
-        # its full text. Powers the AR Finder search and the modal chips.
-        classify_text = " ".join(str(row.get(c) or "") for c in (
+        # Auto-classify this program into UCREW equipment categories. Equipment
+        # tags come from the full text (so a compressor mentioned in an example
+        # still counts). "Custom / whole-facility" is decided from the NAME +
+        # technology + type only -- prescriptive measures often mention "custom"
+        # in prose as a fallback, and that shouldn't demote them to the custom
+        # bucket in the AR Finder. Powers the AR Finder search and modal chips.
+        full_text = " ".join(str(row.get(c) or "") for c in (
             "Program Name", "Technology", "Sector", "Incentive Type",
             "_methodology", "_implementation", "_example", "Notes",
         ))
-        equipment = classify_equipment(classify_text)
-        is_custom = any(c in CUSTOM_CATEGORIES for c in equipment)
+        narrow_text = " ".join(str(row.get(c) or "") for c in (
+            "Program Name", "Technology", "Incentive Type",
+        ))
+        is_custom = any(c in CUSTOM_CATEGORIES for c in classify_equipment(narrow_text))
+        equipment = [c for c in classify_equipment(full_text) if c not in CUSTOM_CATEGORIES]
+        if is_custom:
+            equipment.append("Custom / Whole Facility")
+        equipment = sorted(equipment)
 
         # Store detail data in JS object
         detail_data[row_idx] = {
@@ -999,17 +1009,19 @@ function annotateRow(row, arActive, overlap, isCustom) {
   if (old) old.remove();
   row.classList.remove('ar-custom');
   if (!arActive) return;
-  if (overlap.length > 0) {
-    var s = document.createElement('span');
-    s.className = 'match-tag';
-    s.textContent = 'match: ' + overlap.join(', ');
-    cell.appendChild(s);
-  } else if (isCustom) {
+  // Custom / whole-facility programs are labelled as such even when they also
+  // overlap, so specific prescriptive measures (red "match" tag) stand apart.
+  if (isCustom) {
     var c = document.createElement('span');
     c.className = 'custom-tag';
     c.textContent = 'custom / whole-facility';
     cell.appendChild(c);
     row.classList.add('ar-custom');
+  } else if (overlap.length > 0) {
+    var s = document.createElement('span');
+    s.className = 'match-tag';
+    s.textContent = 'match: ' + overlap.join(', ');
+    cell.appendChild(s);
   }
 }
 
@@ -1019,7 +1031,9 @@ function reorderForAr() {
   var tbody = document.querySelector('#tbl tbody');
   var rows = Array.from(tbody.querySelectorAll('tr'));
   rows.sort(function(a, b) {
-    function grp(r) { return r._arSpecific ? 0 : (r._arCustom ? 1 : 2); }
+    // 0 = specific prescriptive match, 1 = custom/whole-facility, 2 = other.
+    // Custom outranks-to-bucket-1 even if it overlaps, so exact measures lead.
+    function grp(r) { return (r._arSpecific && !r._arCustom) ? 0 : (r._arCustom ? 1 : 2); }
     var ga = grp(a), gb = grp(b);
     if (ga !== gb) return ga - gb;
     if (a._expired !== b._expired) return a._expired ? 1 : -1;
@@ -1087,8 +1101,10 @@ function applyFilters() {
     row.classList.toggle('hidden', !match);
     if (match) {
       visible++;
-      if (arActive && overlap.length > 0) specificCount++;
-      else if (arActive && isCustom) customCount++;
+      // Count consistently with the ranking buckets: custom is custom even when
+      // it overlaps; only non-custom overlaps count as targeted matches.
+      if (arActive && isCustom) customCount++;
+      else if (arActive && overlap.length > 0) specificCount++;
     }
   });
 

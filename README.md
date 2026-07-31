@@ -111,7 +111,30 @@ rebuilds automatically.
 2. **Settings → Pages → Source: GitHub Actions** (the workflow also enables this
    automatically on first run).
 
-## Data accuracy
+## Accuracy: break measures apart, price them exactly
+
+To keep the incentive **value** accurate, programs are broken out to the granularity
+the utility actually publishes instead of one broad "custom" bucket. For example,
+Rocky Mountain Power's Utah wattsmart Business program is split into specific measures
+— *VFD Air Compressor (≤75 hp)* carries its exact published rate, **$0.15/kWh of annual
+energy savings**, and links to RMP's compressed-air incentive page — rather than a
+generic `$0.08–0.12/kWh` custom range. Searching an AR like "install VFD on compressor"
+now surfaces that exact measure first.
+
+How this stays maintainable and self-updating:
+
+- **Granular measures live in the scrapers** (e.g. [`scrapers/rocky_mountain.py`](scrapers/rocky_mountain.py)),
+  each with its precise `incentive_rate` and a link to the authoritative utility page.
+- **The AR Finder ranks specific prescriptive measures above custom/whole-facility
+  programs**, so the most accurate value leads; custom programs still appear as
+  "also applies."
+- **The daily scanner keeps running** — it live-checks the source pages and auto-expires
+  lapsed programs. Utilities publish per-unit rates in PDFs (not machine-readable HTML),
+  so exact amounts are curated from those published lists; when a utility revises a rate,
+  update the matching entry and push.
+- **To add or refine a measure:** edit the `MEASURES` list in the relevant scraper (name
+  it specifically, e.g. "VFD Air Compressor (≤75 hp)", set `incentive_rate`, and point
+  `url` at the utility's category page). Push to `main` and the site rebuilds.
 
 Incentive programs change often and expiration dates lapse. Programs whose expiration
 date has passed are automatically marked **Expired** with a note to verify renewal at
