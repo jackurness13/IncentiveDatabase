@@ -3,7 +3,12 @@ Dominion Energy / Enbridge Gas Utah -- ThermWise Business natural gas efficiency
 Commercial & Industrial programs only (UCREW scope).
 Source: dominionenergy.com/utah/save-energy/thermwise
 """
-from .base import record
+from .base import record, make_key
+
+UTIL = "dominion"
+# ThermWise amounts are published as ranges ($0.50-1.00/therm) not exact verified
+# rates, so both are "general" until a specific rate schedule/PDF is pulled in.
+DETAILED_KEYS = set()
 
 ADMIN = "Dominion Energy / Enbridge Gas Utah"
 STATE = "UT"
@@ -43,11 +48,18 @@ def _business():
             "Example: A hotel in Salt Lake City replaces two 80% efficiency boilers with 92% condensing units. Annual gas consumption (boilers): 18,000 therms. New consumption: ~15,600 therms. Annual savings: 2,400 therms x $0.88 = $2,112. Estimated rebate: ~$2,400. Boiler cost: $28,000. Payback after rebate: ~12 years.",
         ),
     ]
-    return [
-        record(STATE, name, ADMIN, SECTOR, "Rebate", tech, value, max_b, recip, exp, DOMSAVINGS,
-               notes=notes, implementation=impl, methodology=meth, example=ex,
-               incentive_rate=rate, rebate_tiers=tiers, unit_cap=cap,
-               baseline=baseline, min_project=minp)
-        for (name, tech, value, max_b, rate, tiers, cap, baseline, minp,
-             recip, exp, notes, impl, meth, ex) in programs
-    ]
+    rows = []
+    for (name, tech, value, max_b, rate, tiers, cap, baseline, minp,
+         recip, exp, notes, impl, meth, ex) in programs:
+        key = make_key(UTIL, name)
+        detailed = key in DETAILED_KEYS
+        rows.append(record(
+            STATE, name, ADMIN, SECTOR, "Rebate", tech, value, max_b, recip, exp, DOMSAVINGS,
+            notes=notes, implementation=impl, methodology=meth, example=ex,
+            incentive_rate=rate, rebate_tiers=tiers, unit_cap=cap,
+            baseline=baseline, min_project=minp,
+            key=key,
+            detail_level=("detailed" if detailed else "general"),
+            verified_date="", source_doc=DOMSAVINGS,
+        ))
+    return rows

@@ -10,7 +10,16 @@ client-side JS, so it cannot be scraped reliably. These are curated from the
 authoritative federal sources linked per program; the daily scanner still runs
 and auto-expires anything past its date. Tax law changes -- verify current terms.
 """
-from .base import record
+from .base import record, make_key
+
+UTIL = "federal"
+VERIFIED_DATE = "2026-07-31"
+# ITC rates (30%) are verified from primary sources; the others (MACRS mechanism,
+# 179D inflation-indexed amount, REAP grant share) vary or are indexed -> general.
+DETAILED_KEYS = {
+    "federal:battery-storage-section-48e",
+    "federal:solar-pv-section-48e",
+}
 
 ADMIN_IRS = "U.S. Federal (IRS)"
 ADMIN_USDA = "U.S. Federal (USDA Rural Development)"
@@ -148,12 +157,18 @@ def fetch_all(states=None):
     rows = []
     for state in states:
         for p in PROGRAMS:
+            key = make_key(UTIL, p["name"])
+            detailed = key in DETAILED_KEYS
             rows.append(record(
                 state, p["name"], _admin(p), SECTOR, p["type"], p["tech"],
                 p["value"], p["max"], RECIP, "Ongoing", p["url"],
                 notes=p["notes"], implementation=p["impl"], methodology=p["meth"],
                 example=p["example"], incentive_rate=p["rate"],
                 baseline=p["baseline"], min_project=p["minp"],
+                key=key,
+                detail_level=("detailed" if detailed else "general"),
+                verified_date=(VERIFIED_DATE if detailed else ""),
+                source_doc=p["url"],
             ))
     print("  Federal (IRS/USDA): " + str(len(PROGRAMS)) + " programs x " + str(len(states)) + " state(s)")
     return rows

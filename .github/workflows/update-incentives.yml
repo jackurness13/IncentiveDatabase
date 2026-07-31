@@ -9,7 +9,7 @@ on:
     branches: [main]      # Rebuild on code changes too
 
 permissions:
-  contents: read
+  contents: write   # commit the two-tier scan state back to the repo (audit trail)
   pages: write
   id-token: write
 
@@ -38,6 +38,21 @@ jobs:
 
       - name: Run the scanner (builds site/)
         run: python fetch_incentives.py
+
+      # Persist change-detection state + the needs-data worklist so new/changed
+      # programs are remembered run-to-run and show up as a git-diff audit trail.
+      # [skip ci] stops this bot commit from re-triggering the workflow.
+      - name: Commit scan state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/scan_state.json data/needs_data.md
+          if git diff --cached --quiet; then
+            echo "No scan-state changes to commit."
+          else
+            git commit -m "chore: update scan state [skip ci]"
+            git push
+          fi
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

@@ -47,12 +47,16 @@ scrapers/                   One module per data source (each returns C&I program
   dominion_ut.py              Dominion Energy / ThermWise Business (UT) [active]
   federal.py                  Federal C&I incentives -- ITC (battery/solar 30%),
                               MACRS, 179D, USDA REAP  [active, all states]
+  discovery.py                Breadth discovery: scans utility index pages, adds any
+                              uncovered program/category as a 'general' stub [active]
   nv_energy.py                NV Energy PowerShift Business (NV)        [disabled: not in ENABLED_STATES]
   northwestern.py             NorthWestern Energy Business (MT)         [disabled: not in ENABLED_STATES]
   idaho_power.py              Idaho Power C&I + Agricultural (ID)       [disabled: not in ENABLED_STATES]
   avista.py                   Avista Business (ID)                      [disabled: not in ENABLED_STATES]
   dsire.py                    DSIRE lookup [inactive: API now returns 403 and pages are
                               JS-rendered; federal.py carries the key federal incentives instead]
+data/scan_state.json        Per-program source fingerprints (change detection); committed
+data/needs_data.md          Auto-generated worklist of programs needing exact data; committed
 site/                       Static site published to GitHub Pages (generated, gitignored)
 .github/workflows/          Daily build + publish automation
 ```
@@ -60,20 +64,55 @@ site/                       Static site published to GitHub Pages (generated, gi
 Non-Utah scrapers stay in the repo but don't run until their state is added to
 `ENABLED_STATES` — enabling more coverage is a one-line change, not a rewrite.
 
-### Coverage self-audit (catching missing incentives)
+## Two-tier data model: broad by default, exact when verified
 
-Each daily run fetches Rocky Mountain Power's live Utah incentive-lists index and
-compares the categories RMP publishes against the measures we carry. If RMP adds a
-new category we don't cover, the run logs a `[COVERAGE]` warning naming it — so gaps
-surface automatically instead of going unnoticed. The check lives in
-`scrapers/rocky_mountain.py` (`_audit_coverage`); extend the same pattern to other
-utilities as states are enabled.
+Because exact incentive amounts live in changing PDFs (see "Accuracy" below), every
+program carries a **tier**:
 
-**Why some rates say "confirm current amount":** utilities publish exact per-unit
-amounts in PDFs (not machine-readable HTML), and DSIRE — the would-be automated
-catch-all — now blocks scraping. So exact rates are curated from the published lists
-(each measure links to its authoritative page), while the daily scanner keeps the
-pages live-checked, auto-expires lapsed programs, and audits category coverage.
+- **`detailed`** — a human verified the exact values from the source; shown with a green
+  **"✓ verified {date}"** badge and its Calculation Values panel populated.
+- **`general`** — the program exists and is described broadly, but its exact per-unit
+  values are **pending**; shown with an amber **"general · values pending"** badge.
+- A `detailed` entry whose source document later changes flips to a red
+  **"⚠ source changed · re-verify"** badge and its (now possibly stale) numbers are
+  withheld until re-verified.
+
+How each piece stays automatic:
+
+- **Discovery keeps it broad.** `scrapers/discovery.py` scans each utility's live index
+  and adds any program/category we don't already cover as a `general` stub — so new
+  programs appear on their own, flagged for data. (Coverage is decided by URL, so there
+  are never duplicate general + detailed rows for the same thing.)
+- **Change detection keeps it honest.** Each run fingerprints every `detailed` entry's
+  source document via a cheap HTTP `HEAD` (Content-Length; never downloads or parses the
+  file) and compares it to the fingerprint captured when the values were verified. A
+  mismatch flags the entry **and stays flagged every run** until a human re-verifies.
+  State lives in `data/scan_state.json`, committed each run so `git log` is an audit trail
+  of what changed when.
+- **The worklist tells you what to do.** `data/needs_data.md` is regenerated every run
+  listing all `general` + `changed` programs with their source links — your queue of what
+  to curate next.
+
+### Promoting a program (general → detailed)
+
+1. Open the program's source PDF/page (linked in `data/needs_data.md`).
+2. Paste it (or the key values) to Claude and ask it to draft the curated measure — exact
+   `incentive_rate`, `rebate_tiers`, `unit_cap`, `baseline`, plus a `verified_date` and
+   `source_doc`.
+3. **Review the numbers** (a human always confirms the figures), then add/replace the
+   measure in the relevant scraper's `MEASURES` list and add its key to that scraper's
+   `DETAILED_KEYS`.
+4. Commit. The next build shows it as **verified**, drops it from `needs_data.md`, and
+   discovery stops stubbing that category.
+
+To signal a **re-verification** after a "source changed" flag, bump the measure's
+`verified_date` — the change detector re-baselines the fingerprint and clears the flag.
+
+**Why some rates are "general / pending":** utilities publish exact per-unit amounts in
+PDFs (not machine-readable HTML), and DSIRE — the would-be automated catch-all — now
+blocks scraping. So exact rates are curated from the published lists (each measure links
+to its authoritative page), while the scanner automatically keeps the list broad,
+live-checks the pages, auto-expires lapsed programs, and flags changed sources.
 
 Each scraper tries to read the live utility page and falls back to a curated set of
 known programs (with full methodology and worked examples) if the page can't be parsed.

@@ -40,6 +40,10 @@ HTML_PATH = BASE_DIR / "incentives.html"
 LOG_PATH = BASE_DIR / "run_log.txt"
 # GitHub Pages publishes this folder (Settings -> Pages -> Source: GitHub Actions).
 SITE_DIR = BASE_DIR / "site"
+# Committed state/reports for the two-tier model (change detection + needs-data list).
+DATA_DIR = BASE_DIR / "data"
+NEEDS_DATA_PATH = DATA_DIR / "needs_data.md"
+SCAN_STATE_PATH = DATA_DIR / "scan_state.json"
 # UCREW brand logo (vendored in-repo so CI builds have no external dependency).
 LOGO_PATH = BASE_DIR / "assets" / "ucrew-logo.svg"
 
@@ -97,6 +101,8 @@ HTML_COLUMNS = [c for c in COLUMNS if c not in (
 DETAIL_COLUMNS = [
     "_incentive_rate", "_rebate_tiers", "_unit_cap", "_baseline", "_min_project",
     "_implementation", "_methodology", "_example",
+    # Two-tier model metadata (see scrapers/base.record).
+    "_key", "_detail_level", "_verified_date", "_source_doc", "_changed",
 ]
 
 ALL_COLUMNS = COLUMNS + DETAIL_COLUMNS
@@ -219,6 +225,7 @@ def main():
     all_rows = _fetch_all_sources()
     all_rows = _deduplicate(all_rows)
     all_rows = _auto_expire(all_rows)
+    all_rows = _apply_change_detection(all_rows)
 
     print("\nTotal programs collected: " + str(len(all_rows)))
     _print_summary(all_rows)
@@ -227,6 +234,7 @@ def main():
     _write_excel(all_rows)
     _write_html(all_rows)
     _stage_site()
+    _write_needs_data(all_rows)
     _write_log(len(all_rows))
 
     print("\nDone. Files written:")
@@ -262,6 +270,7 @@ def _fetch_all_sources():
         ("Idaho Power (ID)", "scrapers.idaho_power", "fetch_all", "ID"),
         ("Avista (ID)", "scrapers.avista", "fetch_all", "ID"),
         ("Federal (IRS/USDA)", "scrapers.federal", "fetch_all", None),
+        ("Discovery (index scan)", "scrapers.discovery", "fetch_all", None),
         ("DSIRE", "scrapers.dsire", "fetch_all", None),
     ]
 
@@ -605,12 +614,29 @@ def _write_html(rows):
             "minProject": str(row.get("_min_project") or ""),
             "equipment": equipment,
             "custom": is_custom,
+            # Two-tier data-completeness metadata.
+            "detailLevel": str(row.get("_detail_level") or "general"),
+            "verified": str(row.get("_verified_date") or ""),
+            "changed": bool(str(row.get("_changed") or "")),
+            "sourceDoc": str(row.get("_source_doc") or ""),
         }
+
+        # Data-completeness (tier) badge shown next to the program name.
+        detail_level = str(row.get("_detail_level") or "general")
+        verified = str(row.get("_verified_date") or "")
+        changed = bool(str(row.get("_changed") or ""))
+        if changed:
+            tier_badge = '<span class="tier tier-changed">&#9888; source changed &middot; re-verify</span>'
+        elif detail_level == "detailed":
+            tier_badge = ('<span class="tier tier-verified">&#10003; verified'
+                          + ((' ' + _esc(verified)) if verified else '') + '</span>')
+        else:
+            tier_badge = '<span class="tier tier-general">general &middot; values pending</span>'
 
         cells = [
             '<td><span class="badge" style="background:' + color + '">' + _esc(state) + "</span></td>",
             '<td class="name-cell"><button class="detail-btn" onclick="openDetail(' + str(row_idx) + ')">'
-            + _esc(name) + "</button></td>",
+            + _esc(name) + "</button> " + tier_badge + "</td>",
         ]
         for col in HTML_COLUMNS[2:]:
             val = str(row.get(col) or "")
@@ -630,6 +656,7 @@ def _write_html(rows):
             'data-tech="' + _esc(str(row.get("Technology") or "")) + '" '
             'data-equipment="' + _esc(";".join(equipment)) + '" '
             'data-custom="' + ("1" if is_custom else "0") + '" '
+            'data-detail="' + _esc(detail_level) + '" '
             'data-idx="' + str(row_idx) + '">'
             + "".join(cells) + "</tr>"
         )
@@ -719,6 +746,16 @@ td .eq-tag { display: inline-block; background: #f0e6e6; color: #7a3a3a; border-
 .match-tag { display: inline-block; background: var(--brand); color: #fff; border-radius: 9px; padding: 1px 7px; font-size: 10px; font-weight: 700; margin-left: 6px; vertical-align: middle; }
 .custom-tag { display: inline-block; background: #e6b800; color: #4a3b00; border-radius: 9px; padding: 1px 7px; font-size: 10px; font-weight: 700; margin-left: 6px; vertical-align: middle; }
 .equip-chip { display: inline-block; background: var(--brand-tint); color: var(--brand); border: 1px solid var(--brand-tint-border); border-radius: 12px; padding: 4px 11px; font-size: 12px; font-weight: 700; margin: 0 5px 5px 0; }
+/* Data-completeness (tier) badges */
+.tier { display: inline-block; border-radius: 9px; padding: 1px 7px; font-size: 10px; font-weight: 700; white-space: nowrap; vertical-align: middle; }
+.tier-verified { background: #e5f4e5; color: #1f6e1f; border: 1px solid #bfe3bf; }
+.tier-general { background: #fff4e0; color: #9a6a00; border: 1px solid #f0d9a8; }
+.tier-changed { background: #fdecec; color: #b42318; border: 1px solid #f3c4c0; }
+.calc-status { font-size: 12px; line-height: 1.5; padding: 9px 12px; border-radius: 6px; margin-bottom: 10px; }
+.calc-status.verified { background: #f0f7f0; color: #1f6e1f; border: 1px solid #cfe6cf; }
+.calc-status.general { background: #fff8ec; color: #7a5200; border: 1px solid #f0d9a8; }
+.calc-status.changed { background: #fdecec; color: #b42318; border: 1px solid #f3c4c0; }
+.calc-status a { color: inherit; text-decoration: underline; }
 
 /* Modal */
 .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 100; overflow-y: auto; padding: 40px 20px; }
@@ -839,6 +876,7 @@ td .eq-tag { display: inline-block; background: #f0e6e6; color: #7a3a3a; border-
     </div>
     <div id="m-calc-section" class="section">
       <div class="section-title">Calculation Values (numbers used in savings math)</div>
+      <div id="m-calc-status"></div>
       <div class="calc-panel" id="m-calc-panel"></div>
     </div>
     <div id="m-notes-section" class="section">
@@ -979,8 +1017,32 @@ function openDetail(idx) {
         '</div><div class="calc-val">' + hlNums(val) + '</div></div>';
     }
   }
-  document.getElementById('m-calc-section').style.display = calcHtml ? '' : 'none';
-  calcPanel.innerHTML = calcHtml;
+  // Data-completeness status + tier handling. "changed" hides possibly-stale
+  // numbers; "general" shows what we have but flags it as unverified; "detailed"
+  // confirms the values were verified from the source.
+  var statusEl2 = document.getElementById('m-calc-status');
+  var srcLink = d.sourceDoc ? ' <a href="' + escHtml(d.sourceDoc) + '" target="_blank">see source &rarr;</a>' : '';
+  var showPanel = !!calcHtml;
+  if (d.changed) {
+    statusEl2.className = 'calc-status changed';
+    statusEl2.innerHTML = '&#9888; The source document changed since this was verified' +
+      (d.verified ? ' (' + escHtml(d.verified) + ')' : '') +
+      '. Exact values are pending re-verification — confirm with the program administrator.' + srcLink;
+    calcPanel.innerHTML = '';
+    showPanel = true;   // show the section for the status note even with no rows
+  } else if (d.detailLevel === 'detailed') {
+    statusEl2.className = 'calc-status verified';
+    statusEl2.innerHTML = '&#10003; Exact values verified' + (d.verified ? ' ' + escHtml(d.verified) : '') +
+      ' from the program source.' + srcLink;
+    calcPanel.innerHTML = calcHtml;
+  } else {
+    statusEl2.className = 'calc-status general';
+    statusEl2.innerHTML = 'General / estimated — exact per-unit values are pending. ' +
+      'Provide the program PDF to add verified figures.' + srcLink;
+    calcPanel.innerHTML = calcHtml;
+    showPanel = true;   // always show so the "pending" note is visible
+  }
+  document.getElementById('m-calc-section').style.display = showPanel ? '' : 'none';
 
   document.getElementById('m-implementation').textContent = d.implementation || 'See program website for application instructions.';
   document.getElementById('m-methodology').innerHTML = d.methodology ? hlNums(d.methodology) : 'See program website for savings calculation methodology.';
@@ -1160,6 +1222,138 @@ applyFilters();
 def _write_log(count):
     with open(LOG_PATH, "a", encoding="utf-8") as f:
         f.write(datetime.now().isoformat() + " -- " + str(count) + " programs fetched\n")
+
+
+def _load_scan_state():
+    try:
+        return json.loads(SCAN_STATE_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"programs": {}}
+
+
+def _save_scan_state(state):
+    DATA_DIR.mkdir(exist_ok=True)
+    SCAN_STATE_PATH.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _apply_change_detection(rows):
+    """Compare each detailed program's source-document fingerprint against the
+    fingerprint captured when its values were last verified. If they differ, the
+    entry is flagged _changed=True and STAYS flagged every run (its exact numbers
+    are withheld pending re-verification) until a human re-verifies -- signalled by
+    bumping the measure's verified_date in the scraper, which re-baselines here.
+    New programs are counted; vanished ones are aged out. Persisted to
+    data/scan_state.json so the committing workflow gives a git-diff audit trail."""
+    from scrapers.base import fingerprint  # local import: base has only light deps
+
+    state = _load_scan_state()
+    progs = state.setdefault("programs", {})
+    today = date.today().isoformat()
+
+    # Fingerprint each unique *detailed* source doc once (only detailed entries can
+    # meaningfully "change" -- general ones are already pending).
+    detailed_urls = {str(r.get("_source_doc") or "") for r in rows
+                     if str(r.get("_detail_level")) == "detailed" and r.get("_source_doc")}
+    fps = {u: fingerprint(u) for u in detailed_urls if u}
+
+    changed, new = 0, 0
+    current_keys = set()
+    for r in rows:
+        key = str(r.get("_key") or "")
+        if not key:
+            continue
+        current_keys.add(key)
+        level = str(r.get("_detail_level") or "general")
+        src = str(r.get("_source_doc") or "")
+        vdate = str(r.get("_verified_date") or "")
+        fp = fps.get(src, "")
+        prev = progs.get(key)
+        if prev is None:
+            new += 1
+
+        entry = dict(prev) if prev else {}
+        entry.update({
+            "source_doc": src,
+            "detail_level": level,
+            "last_fingerprint": fp or entry.get("last_fingerprint", ""),
+            "first_seen": entry.get("first_seen", today),
+            "last_seen": today,
+            "missing_runs": 0,
+        })
+
+        if level == "detailed":
+            # Re-baseline the verified fingerprint on first sight or when a human
+            # re-verified (verified_date changed). Otherwise compare against it --
+            # a mismatch is a sticky "source changed" until the next re-verify.
+            if prev is None or entry.get("verified_date") != vdate:
+                entry["verified_date"] = vdate
+                entry["verified_fingerprint"] = fp
+            else:
+                vfp = entry.get("verified_fingerprint", "")
+                if vfp and fp and fp != vfp:
+                    r["_changed"] = "1"
+                    changed += 1
+        else:
+            entry["verified_date"] = vdate
+            entry.pop("verified_fingerprint", None)
+
+        progs[key] = entry
+
+    # Age out programs that vanished from this scan (log only -- no row to display).
+    gone = [k for k in progs if k not in current_keys]
+    for k in gone:
+        progs[k]["missing_runs"] = int(progs[k].get("missing_runs", 0)) + 1
+
+    _save_scan_state(state)
+    print("Change detection: " + str(new) + " new, " + str(changed)
+          + " source(s) changed since last verified"
+          + ((", " + str(len(gone)) + " not seen this run") if gone else "")
+          + " -> " + SCAN_STATE_PATH.name)
+    return rows
+
+
+def _write_needs_data(rows):
+    """Write the maintainer worklist: programs that are 'general' (exact values
+    pending) or 'changed' (source updated, needs re-verification). This is the
+    'ask for a PDF/data' surface -- committed as data/needs_data.md so it shows
+    up in git and can be worked through, promoting entries to 'detailed'."""
+    pending = []
+    for r in rows:
+        level = str(r.get("_detail_level") or "general")
+        changed = bool(str(r.get("_changed") or ""))
+        if level == "detailed" and not changed:
+            continue
+        pending.append({
+            "name": str(r.get("Program Name") or ""),
+            "key": str(r.get("_key") or ""),
+            "admin": str(r.get("Administrator") or ""),
+            "reason": "changed -- re-verify" if changed else "general -- values pending",
+            "source": str(r.get("_source_doc") or r.get("Application URL") or ""),
+        })
+
+    detailed = len(rows) - len(pending)
+    print("\nData completeness: " + str(detailed) + " detailed (verified), "
+          + str(len(pending)) + " need data (general/changed).")
+
+    DATA_DIR.mkdir(exist_ok=True)
+    lines = [
+        "# Incentives needing exact data",
+        "",
+        "Auto-generated each run. These programs are listed with a **general** description "
+        "because their exact per-unit values are pending, or their source **changed** and needs "
+        "re-verification. Promote one by pasting its source PDF/values to Claude, reviewing the "
+        "drafted rate, and committing it as a `detailed` measure (see README).",
+        "",
+        "_" + str(date.today()) + " -- " + str(detailed) + " detailed, "
+        + str(len(pending)) + " pending._",
+        "",
+    ]
+    for p in sorted(pending, key=lambda x: (x["admin"], x["name"])):
+        src = (" — [source](" + p["source"] + ")") if p["source"] else ""
+        lines.append("- **" + p["name"] + "**  \n  `" + p["key"] + "` · "
+                     + p["admin"] + " · _" + p["reason"] + "_" + src)
+    NEEDS_DATA_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print("Needs-data list -> " + str(NEEDS_DATA_PATH))
 
 
 if __name__ == "__main__":

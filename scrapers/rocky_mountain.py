@@ -14,8 +14,16 @@ Sources:
   Motors & drives:                  .../ut-incentive-lists/ut-motors-drives.html
   HVAC:                             .../ut-incentive-lists/ut-hvac.html
 """
-from .base import record, get
-from bs4 import BeautifulSoup
+from .base import record, make_key
+
+UTIL = "rmp"
+# Measures with an exact, human-verified rate (everything else is "general" --
+# a real category, but the exact per-unit amount is still pending a PDF/data pull).
+VERIFIED_DATE = "2026-07-31"
+DETAILED_KEYS = {
+    "rmp:vfd-air-compressor-75-hp",
+    "rmp:compressed-air-system-optimization-calculated",
+}
 
 BASE = "https://www.rockymountainpower.net"
 BIZ = BASE + "/savings-energy-choices/business/wattsmart-efficiency-incentives-utah"
@@ -26,8 +34,8 @@ SECTOR = "Commercial & Industrial"
 RECIP = "Commercial & industrial Rocky Mountain Power customers in Utah"
 
 # Authoritative per-category incentive pages (published rates live in their PDFs).
-# Keys double as the coverage-audit slugs (see _audit_coverage): every category
-# RMP publishes should have at least one measure pointing at it.
+# Each measure points its source at one of these; scrapers/discovery.py treats a
+# category as "covered" when some measure's source URL matches it.
 URL = {
     "lighting": LISTS + "/ut-lighting.html",
     "hvac": LISTS + "/ut-hvac.html",
@@ -45,65 +53,12 @@ URL = {
     "battery": BASE + "/savings-energy-choices/wattsmart-battery-program.html",
 }
 
-# The RMP incentive-lists index slugs we expect to see, mapped to the URL key that
-# covers them. The daily audit fetches the live index and warns if RMP adds a
-# category we do not yet cover -- so missing incentives get surfaced automatically.
-EXPECTED_CATEGORY_SLUGS = {
-    "ut-lighting": "lighting",
-    "ut-hvac": "hvac",
-    "ut-motors-drives": "motors",
-    "ut-foodservice": "foodservice",
-    "ut-compressed-air": "compressed_air",
-    "ut-building-envelope": "envelope",
-    "ut-appliances-office": "appliances",
-    "ut-agriculture": "agriculture",
-    "wbnc": "wbnc",
-    "ut-wastewater-other-refrigeration": "wastewater",
-    "ut-oil-gas": "oil_gas",
-}
-
-
 def fetch_all():
     rows = _measures()
     print("  Rocky Mountain Power [UT]: " + str(len(rows)) + " programs")
-    _audit_coverage()
     return rows
-
-
-def _audit_coverage():
-    """Fetch RMP's live Utah incentive-lists index and warn about any published
-    category we don't yet have a measure for. This keeps the scanner honest about
-    completeness: if RMP adds a category, the daily run flags it in the log."""
-    try:
-        resp = get(URL["lists"], timeout=15)
-        soup = BeautifulSoup(resp.text, "lxml")
-        found = set()
-        for a in soup.find_all("a", href=True):
-            href = a["href"].lower()
-            for slug in EXPECTED_CATEGORY_SLUGS:
-                if slug in href:
-                    found.add(slug)
-        missing_from_page = [s for s in EXPECTED_CATEGORY_SLUGS if s not in found]
-        # Categories present on the page but not in our expected/covered map:
-        known = set(EXPECTED_CATEGORY_SLUGS)
-        new_on_page = []
-        for a in soup.find_all("a", href=True):
-            href = a["href"].lower()
-            if "/ut-incentive-lists/" in href and href.rstrip("/").endswith(".html"):
-                slug = href.rstrip("/").rsplit("/", 1)[-1].replace(".html", "")
-                if slug and slug not in known and slug not in new_on_page:
-                    new_on_page.append(slug)
-        if new_on_page:
-            print("    [COVERAGE] RMP lists new/uncovered categories: "
-                  + ", ".join(sorted(new_on_page)) + " -- add measures in rocky_mountain.py")
-        if missing_from_page:
-            print("    [COVERAGE] Expected categories not found on RMP index (page may have changed): "
-                  + ", ".join(sorted(missing_from_page)))
-        if not new_on_page and not missing_from_page:
-            print("    [COVERAGE] All " + str(len(EXPECTED_CATEGORY_SLUGS))
-                  + " RMP Utah categories are covered.")
-    except Exception as exc:
-        print("    [COVERAGE] Could not audit RMP category index: " + str(exc))
+    # Coverage gaps are now surfaced by scrapers/discovery.py, which adds any
+    # uncovered category as a 'general' entry (not just a warning).
 
 
 # Each dict is one measure. Keep names specific ("VFD Air Compressor (<=75 hp)")
@@ -455,13 +410,19 @@ MEASURES = [
 
 
 def _measures():
-    return [
-        record(
+    rows = []
+    for m in MEASURES:
+        key = make_key(UTIL, m["name"])
+        detailed = key in DETAILED_KEYS
+        rows.append(record(
             STATE, m["name"], ADMIN, SECTOR, "Rebate", m["tech"],
             m["value"], m["max"], RECIP, "Ongoing", m["url"],
             notes=m["notes"], implementation=m["impl"], methodology=m["meth"],
             example=m["example"], incentive_rate=m["rate"], rebate_tiers=m["tiers"],
             unit_cap=m["cap"], baseline=m["baseline"], min_project=m["minp"],
-        )
-        for m in MEASURES
-    ]
+            key=key,
+            detail_level=("detailed" if detailed else "general"),
+            verified_date=(VERIFIED_DATE if detailed else ""),
+            source_doc=m["url"],
+        ))
+    return rows
