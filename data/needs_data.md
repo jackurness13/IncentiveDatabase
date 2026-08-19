@@ -2,7 +2,7 @@
 
 Auto-generated each run. These programs are listed with a **general** description because their exact per-unit values are pending, or their source **changed** and needs re-verification. Promote one by pasting its source PDF/values to Claude, reviewing the drafted rate, and committing it as a `detailed` measure (see README).
 
-_2026-08-18 -- 4 detailed, 17 pending._
+_2026-08-19 -- 2 detailed, 19 pending._
 
 - **ThermWise Business -- Custom Rebates**  
   `dominion:custom-rebates` · Dominion Energy / Enbridge Gas Utah · _general -- values pending_ — [source](https://www.domsavings.com/)
@@ -18,6 +18,8 @@ _2026-08-18 -- 4 detailed, 17 pending._
   `rmp:commercial-food-service-equipment` · Rocky Mountain Power · _general -- values pending_ — [source](https://www.rockymountainpower.net/savings-energy-choices/business/wattsmart-efficiency-incentives-utah/ut-incentive-lists/ut-foodservice.html)
 - **wattsmart Business -- Commercial Refrigeration & Equipment**  
   `rmp:commercial-refrigeration-equipment` · Rocky Mountain Power · _general -- values pending_ — [source](https://www.rockymountainpower.net/savings-energy-choices/business/wattsmart-efficiency-incentives-utah/ut-incentive-lists/ut-appliances-office.html)
+- **wattsmart Business -- Compressed Air System Optimization (calculated)**  
+  `rmp:compressed-air-system-optimization-calculated` · Rocky Mountain Power · _changed -- re-verify_ — [source](https://www.rockymountainpower.net/savings-energy-choices/business/wattsmart-efficiency-incentives-utah/ut-incentive-lists/ut-compressed-air.html)
 - **wattsmart Business -- Custom / Calculated Projects (Industrial)**  
   `rmp:custom-calculated-projects-industrial` · Rocky Mountain Power · _general -- values pending_ — [source](https://www.rockymountainpower.net/savings-energy-choices/business/wattsmart-efficiency-incentives-utah.html)
 - **wattsmart Business -- HVAC / Heat Pump**  
@@ -28,6 +30,8 @@ _2026-08-18 -- 4 detailed, 17 pending._
   `rmp:motors-vfds-pumps-fans` · Rocky Mountain Power · _general -- values pending_ — [source](https://www.rockymountainpower.net/savings-energy-choices/business/wattsmart-efficiency-incentives-utah/ut-incentive-lists/ut-motors-drives.html)
 - **wattsmart Business -- Oil & Gas Field Efficiency**  
   `rmp:oil-gas-field-efficiency` · Rocky Mountain Power · _general -- values pending_ — [source](https://www.rockymountainpower.net/savings-energy-choices/business/wattsmart-efficiency-incentives-utah/ut-incentive-lists/ut-oil-gas.html)
+- **wattsmart Business -- VFD Air Compressor (<=75 hp)**  
+  `rmp:vfd-air-compressor-75-hp` · Rocky Mountain Power · _changed -- re-verify_ — [source](https://www.rockymountainpower.net/savings-energy-choices/business/wattsmart-efficiency-incentives-utah/ut-incentive-lists/ut-compressed-air.html)
 - **wattsmart Business -- Wastewater & Process (Aeration / Blowers)**  
   `rmp:wastewater-process-aeration-blowers` · Rocky Mountain Power · _general -- values pending_ — [source](https://www.rockymountainpower.net/savings-energy-choices/business/wattsmart-efficiency-incentives-utah/ut-incentive-lists/ut-wastewater-other-refrigeration.html)
 - **wattsmart Business -- Whole-Building New Construction / Major Renovation**  
