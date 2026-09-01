@@ -2,7 +2,7 @@
   "programs": {
     "dominion:custom-rebates": {
       "detail_level": "general",
-      "first_seen": "2026-07-31",
+      "first_seen": "2026-08-31",
       "last_fingerprint": "",
       "last_seen": "2026-08-31",
       "missing_runs": 0,
@@ -11,7 +11,7 @@
     },
     "dominion:gas-boiler-replacement": {
       "detail_level": "general",
-      "first_seen": "2026-07-31",
+      "first_seen": "2026-08-31",
       "last_fingerprint": "",
       "last_seen": "2026-08-31",
       "missing_runs": 0,
@@ -20,7 +20,7 @@
     },
     "federal:179d-energy-efficient-commercial-buildings-deduction": {
       "detail_level": "general",
-      "first_seen": "2026-07-31",
+      "first_seen": "2026-08-31",
       "last_fingerprint": "",
       "last_seen": "2026-08-31",
       "missing_runs": 0,
@@ -29,7 +29,7 @@
     },
     "federal:battery-storage-section-48e": {
       "detail_level": "detailed",
-      "first_seen": "2026-07-31",
+      "first_seen": "2026-08-31",
       "last_fingerprint": "",
       "last_seen": "2026-08-31",
       "missing_runs": 0,
@@ -39,7 +39,7 @@
     },
     "federal:macrs-bonus-depreciation-energy-property": {
       "detail_level": "general",
-      "first_seen": "2026-07-31",
+      "first_seen": "2026-08-31",
       "last_fingerprint": "",
       "last_seen": "2026-08-31",
       "missing_runs": 0,
@@ -48,7 +48,7 @@
     },
     "federal:rural-energy-for-america-program": {
       "detail_level": "general",
-      "first_seen": "2026-07-31",
+      "first_seen": "2026-08-31",
       "last_fingerprint": "",
       "last_seen": "2026-08-31",
       "missing_runs": 0,
@@ -57,7 +57,7 @@
     },
     "federal:solar-pv-section-48e": {
       "detail_level": "detailed",
-      "first_seen": "2026-07-31",
+      "first_seen": "2026-08-31",
       "last_fingerprint": "",
       "last_seen": "2026-08-31",
       "missing_runs": 0,
@@ -65,27 +65,39 @@
       "verified_date": "2026-07-31",
       "verified_fingerprint": ""
     },
-    "rmp:agriculture-irrigation": {
-      "detail_level": "general",
-      "first_seen": "2026-07-31",
-      "last_fingerprint": "",
+    "rmp:appliances-office-equipment": {
+      "detail_level": "detailed",
+      "first_seen": "2026-08-31",
+      "last_fingerprint": "cl:50185",
       "last_seen": "2026-08-31",
       "missing_runs": 0,
-      "source_doc": "https://www.rockymountainpower.net/savings-energy-choices/business/wattsmart-efficiency-incentives-utah/ut-agriculture.html",
-      "verified_date": ""
+      "source_doc": "https://www.rockymountainpower.net/content/dam/pcorp/documents/en/rockymountainpower/savings-energy-choices/wattsmart-business/utah/UT_Wattsmart_Business_Appliances_OtherEquip_Incentives.pdf",
+      "verified_date": "2026-08-31",
+      "verified_fingerprint": "cl:50185"
     },
     "rmp:building-envelope-insulation-cool-roof": {
-      "detail_level": "general",
-      "first_seen": "2026-07-31",
-      "last_fingerprint": "",
+      "detail_level": "detailed",
+      "first_seen": "2026-08-31",
+      "last_fingerprint": "cl:49407",
       "last_seen": "2026-08-31",
       "missing_runs": 0,
-      "source_doc": "https://www.rockymountainpower.net/savings-energy-choices/business/wattsmart-efficiency-incentives-utah/ut-incentive-lists/ut-building-envelope.html",
-      "verified_date": ""
+      "source_doc": "https://www.rockymountainpower.net/content/dam/pcorp/documents/en/rockymountainpower/savings-energy-choices/wattsmart-business/utah/UT_Wattsmart_Business_Building_Envelope_Retrofits_Incentives.pdf",
+      "verified_date": "2026-08-31",
+      "verified_fingerprint": "cl:49407"
+    },
+    "rmp:calculated-lighting-system-retrofit-non-prescriptive-per-watt-reduced": {
+      "detail_level": "detailed",
+      "first_seen": "2026-08-31",
+      "last_fingerprint": "cl:103479",
+      "last_seen": "2026-08-31",
+      "missing_runs": 0,
+      "source_doc": "https://www.rockymountainpower.net/content/dam/pcorp/documents/en/rockymountainpower/savings-energy-choices/wattsmart-business/utah/UT_Wattsmart_Business_Lighting_System_Retrofits_Incentives.pdf",
+      "verified_date": "2026-08-31",
+      "verified_fingerprint": "cl:103479"
     },
     "rmp:commercial-battery-storage-dispatch": {
       "detail_level": "general",
-      "first_seen": "2026-07-31",
+      "first_seen": "2026-08-31",
       "last_fingerprint": "",
       "last_seen": "2026-08-31",
       "missing_runs": 0,
@@ -93,100 +105,117 @@
       "verified_date": ""
     },
     "rmp:commercial-food-service-equipment": {
-      "detail_level": "general",
-      "first_seen": "2026-07-31",
-      "last_fingerprint": "",
+      "detail_level": "detailed",
+      "first_seen": "2026-08-31",
+      "last_fingerprint": "cl:52081",
       "last_seen": "2026-08-31",
       "missing_runs": 0,
-      "source_doc": "https://www.rockymountainpower.net/savings-energy-choices/business/wattsmart-efficiency-incentives-utah/ut-incentive-lists/ut-foodservice.html",
-      "verified_date": ""
-    },
-    "rmp:commercial-refrigeration-equipment": {
-      "detail_level": "general",
-      "first_seen": "2026-07-31",
-      "last_fingerprint": "",
-      "last_seen": "2026-08-31",
-      "missing_runs": 0,
-      "source_doc": "https://www.rockymountainpower.net/savings-energy-choices/business/wattsmart-efficiency-incentives-utah/ut-incentive-lists/ut-appliances-office.html",
-      "verified_date": ""
+      "source_doc": "https://www.rockymountainpower.net/content/dam/pcorp/documents/en/rockymountainpower/savings-energy-choices/wattsmart-business/utah/UT_Wattsmart_Business_Food_Services_Equipment_Incentives.pdf",
+      "verified_date": "2026-08-31",
+      "verified_fingerprint": "cl:52081"
     },
     "rmp:compressed-air-system-optimization-calculated": {
       "detail_level": "detailed",
-      "first_seen": "2026-07-31",
-      "last_fingerprint": "cl:58408",
+      "first_seen": "2026-08-31",
+      "last_fingerprint": "cl:97096",
       "last_seen": "2026-08-31",
       "missing_runs": 0,
-      "source_doc": "https://www.rockymountainpower.net/savings-energy-choices/business/wattsmart-efficiency-incentives-utah/ut-incentive-lists/ut-compressed-air.html",
-      "verified_date": "2026-07-31",
-      "verified_fingerprint": "cl:57939"
+      "source_doc": "https://www.rockymountainpower.net/content/dam/pcorp/documents/en/rockymountainpower/savings-energy-choices/wattsmart-business/utah/UT_Wattsmart_Business_Compressed_Air_Incentives.pdf",
+      "verified_date": "2026-08-31",
+      "verified_fingerprint": "cl:97096"
     },
     "rmp:custom-calculated-projects-industrial": {
       "detail_level": "general",
-      "first_seen": "2026-07-31",
+      "first_seen": "2026-08-31",
       "last_fingerprint": "",
       "last_seen": "2026-08-31",
       "missing_runs": 0,
       "source_doc": "https://www.rockymountainpower.net/savings-energy-choices/business/wattsmart-efficiency-incentives-utah.html",
       "verified_date": ""
     },
-    "rmp:hvac-heat-pump": {
-      "detail_level": "general",
-      "first_seen": "2026-07-31",
-      "last_fingerprint": "",
+    "rmp:express-lighting-retrofit-prescriptive-per-watt-installed": {
+      "detail_level": "detailed",
+      "first_seen": "2026-08-31",
+      "last_fingerprint": "cl:49786",
       "last_seen": "2026-08-31",
       "missing_runs": 0,
-      "source_doc": "https://www.rockymountainpower.net/savings-energy-choices/business/wattsmart-efficiency-incentives-utah/ut-incentive-lists/ut-hvac.html",
-      "verified_date": ""
+      "source_doc": "https://www.rockymountainpower.net/content/dam/pcorp/documents/en/rockymountainpower/savings-energy-choices/wattsmart-business/utah/UT_Wattsmart_Business_Express_Lighting_Retrofits_Incentives.pdf",
+      "verified_date": "2026-08-31",
+      "verified_fingerprint": "cl:49786"
     },
-    "rmp:led-lighting-prescriptive-calculated": {
-      "detail_level": "general",
-      "first_seen": "2026-07-31",
-      "last_fingerprint": "",
+    "rmp:farm-dairy-equipment": {
+      "detail_level": "detailed",
+      "first_seen": "2026-08-31",
+      "last_fingerprint": "cl:53104",
       "last_seen": "2026-08-31",
       "missing_runs": 0,
-      "source_doc": "https://www.rockymountainpower.net/savings-energy-choices/business/wattsmart-efficiency-incentives-utah/ut-incentive-lists/ut-lighting.html",
-      "verified_date": ""
+      "source_doc": "https://www.rockymountainpower.net/content/dam/pcorp/documents/en/rockymountainpower/savings-energy-choices/wattsmart-business/utah/UT_Wattsmart_Business_Farm_Dairy_Equipment_Incentives.pdf",
+      "verified_date": "2026-08-31",
+      "verified_fingerprint": "cl:53104"
+    },
+    "rmp:hvac-heat-pump": {
+      "detail_level": "detailed",
+      "first_seen": "2026-08-31",
+      "last_fingerprint": "cl:59316",
+      "last_seen": "2026-08-31",
+      "missing_runs": 0,
+      "source_doc": "https://www.rockymountainpower.net/content/dam/pcorp/documents/en/rockymountainpower/savings-energy-choices/wattsmart-business/utah/UT_wattsmart_Business_HVAC_Equipment_Incentives.pdf",
+      "verified_date": "2026-08-31",
+      "verified_fingerprint": "cl:59316"
+    },
+    "rmp:irrigation-sprinklers-nozzles-pump-vfd": {
+      "detail_level": "detailed",
+      "first_seen": "2026-08-31",
+      "last_fingerprint": "cl:100406",
+      "last_seen": "2026-08-31",
+      "missing_runs": 0,
+      "source_doc": "https://www.rockymountainpower.net/content/dam/pcorp/documents/en/rockymountainpower/savings-energy-choices/wattsmart-business/utah/UT_Wattsmart_Business_Water_Distribution_Irrigation_Incentives.pdf",
+      "verified_date": "2026-08-31",
+      "verified_fingerprint": "cl:100406"
     },
     "rmp:motors-vfds-pumps-fans": {
-      "detail_level": "general",
-      "first_seen": "2026-07-31",
-      "last_fingerprint": "",
+      "detail_level": "detailed",
+      "first_seen": "2026-08-31",
+      "last_fingerprint": "cl:47055",
       "last_seen": "2026-08-31",
       "missing_runs": 0,
-      "source_doc": "https://www.rockymountainpower.net/savings-energy-choices/business/wattsmart-efficiency-incentives-utah/ut-incentive-lists/ut-motors-drives.html",
-      "verified_date": ""
+      "source_doc": "https://www.rockymountainpower.net/content/dam/pcorp/documents/en/rockymountainpower/savings-energy-choices/wattsmart-business/utah/UT_Wattsmart_Business_Motors_Incentives.pdf",
+      "verified_date": "2026-08-31",
+      "verified_fingerprint": "cl:47055"
     },
     "rmp:oil-gas-field-efficiency": {
-      "detail_level": "general",
-      "first_seen": "2026-07-31",
-      "last_fingerprint": "",
+      "detail_level": "detailed",
+      "first_seen": "2026-08-31",
+      "last_fingerprint": "cl:44066",
       "last_seen": "2026-08-31",
       "missing_runs": 0,
-      "source_doc": "https://www.rockymountainpower.net/savings-energy-choices/business/wattsmart-efficiency-incentives-utah/ut-incentive-lists/ut-oil-gas.html",
-      "verified_date": ""
+      "source_doc": "https://www.rockymountainpower.net/content/dam/pcorp/documents/en/rockymountainpower/savings-energy-choices/wattsmart-business/utah/UT_Wattsmart_Business_Oil_Gas_Incentives.pdf",
+      "verified_date": "2026-08-31",
+      "verified_fingerprint": "cl:44066"
     },
     "rmp:vfd-air-compressor-75-hp": {
       "detail_level": "detailed",
-      "first_seen": "2026-07-31",
-      "last_fingerprint": "cl:58408",
+      "first_seen": "2026-08-31",
+      "last_fingerprint": "cl:97096",
       "last_seen": "2026-08-31",
       "missing_runs": 0,
-      "source_doc": "https://www.rockymountainpower.net/savings-energy-choices/business/wattsmart-efficiency-incentives-utah/ut-incentive-lists/ut-compressed-air.html",
-      "verified_date": "2026-07-31",
-      "verified_fingerprint": "cl:57939"
+      "source_doc": "https://www.rockymountainpower.net/content/dam/pcorp/documents/en/rockymountainpower/savings-energy-choices/wattsmart-business/utah/UT_Wattsmart_Business_Compressed_Air_Incentives.pdf",
+      "verified_date": "2026-08-31",
+      "verified_fingerprint": "cl:97096"
     },
-    "rmp:wastewater-process-aeration-blowers": {
-      "detail_level": "general",
-      "first_seen": "2026-07-31",
-      "last_fingerprint": "",
+    "rmp:wastewater-other-refrigeration": {
+      "detail_level": "detailed",
+      "first_seen": "2026-08-31",
+      "last_fingerprint": "cl:46872",
       "last_seen": "2026-08-31",
       "missing_runs": 0,
-      "source_doc": "https://www.rockymountainpower.net/savings-energy-choices/business/wattsmart-efficiency-incentives-utah/ut-incentive-lists/ut-wastewater-other-refrigeration.html",
-      "verified_date": ""
+      "source_doc": "https://www.rockymountainpower.net/content/dam/pcorp/documents/en/rockymountainpower/savings-energy-choices/wattsmart-business/utah/UT_Wattsmart_Business_WasteWaterRefrigeration_Incentives.pdf",
+      "verified_date": "2026-08-31",
+      "verified_fingerprint": "cl:46872"
     },
     "rmp:whole-building-new-construction-major-renovation": {
       "detail_level": "general",
-      "first_seen": "2026-07-31",
+      "first_seen": "2026-08-31",
       "last_fingerprint": "",
       "last_seen": "2026-08-31",
       "missing_runs": 0,
